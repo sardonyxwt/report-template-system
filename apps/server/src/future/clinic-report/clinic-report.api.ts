@@ -1,5 +1,8 @@
 import { Controller, Inject } from '@nestjs/common';
-import { ClinicReportAggregateRequest } from 'platform/common-base';
+import {
+  ClinicReportAggregateRequest,
+  ClinicReportCreateRequest,
+} from 'platform/common-base';
 import { Endpoint, EndpointBody } from 'platform/common-server';
 import { endpoints } from '../../endpoints';
 import { ClinicReportService } from './clinic-report.service';
@@ -10,6 +13,16 @@ export class ClinicReportApi {
     @Inject(ClinicReportService)
     private readonly clinicReportService: ClinicReportService,
   ) {}
+
+  @Endpoint(endpoints.clinicReport.create, {
+    desc: 'Create a clinic report with test data.',
+  })
+  create(
+    @EndpointBody()
+    data: ClinicReportCreateRequest,
+  ) {
+    return this.clinicReportService.create(data);
+  }
 
   @Endpoint(endpoints.clinicReport.findMany, {
     desc: 'Find clinic reports.',

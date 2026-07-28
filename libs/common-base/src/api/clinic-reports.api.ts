@@ -1,5 +1,6 @@
 import {
   ClinicReportAggregateRequest,
+  ClinicReportCreateRequest,
   ClinicReportResponse,
   ClinicReportsResponse,
 } from '../data/clinic-report/clinic-report.types';
@@ -11,6 +12,12 @@ export const createClinicReportsApi = (
   endpoints: ClinicReportEndpoints,
 ) => {
   const api = {
+    create: (
+      body: ClinicReportCreateRequest,
+    ): Promise<ClinicReportResponse> => {
+      const { path, method } = endpoints.create;
+      return request({ path, method, body });
+    },
     findMany: (
       body: ClinicReportAggregateRequest,
     ): Promise<ClinicReportsResponse> => {

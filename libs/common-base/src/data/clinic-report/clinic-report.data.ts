@@ -33,4 +33,11 @@ export const ClinicReportsResponseSchema = createManyResponseSchema(
   ClinicReportResponseSchema,
 ).meta({ name: 'ClinicReportsResponseSchema' });
 
+export const ClinicReportCreateRequestSchema = z
+  .object({
+    patientId: ClinicReportSchema.shape.patientId,
+    clinicId: ClinicReportSchema.shape.clinicId,
+  })
+  .meta({ name: 'ClinicReportCreateRequestSchema' });
+
 export const ClinicReportAggregateRequestSchema = ArgsAggregateRequestSchema;

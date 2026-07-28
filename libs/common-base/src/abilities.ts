@@ -171,6 +171,8 @@ export const getUserAbilities = (payload?: JwtStrategyPayload) => {
           : helper.forManagerOwner({ ownerId: managerId }),
     },
     clinicReports: {
+      create: ({ managerId }: OwnedEntityCheck) =>
+        helper.forManagerOwner({ ownerId: managerId }),
       read: ({ managerId }: OwnedEntityCheck) =>
         isAdmin
           ? helper.forAdmin()
