@@ -1,0 +1,46 @@
+{
+  "name": "platform/prisma",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/prisma/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "dependsOn": ["generate"],
+      "options": {
+        "outputPath": "dist/libs/prisma",
+        "main": "libs/prisma/src/index.ts",
+        "tsConfig": "libs/prisma/tsconfig.lib.json",
+        "assets": []
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "fix": true,
+        "lintFilePatterns": ["libs/prisma/**/*.ts"]
+      }
+    },
+    "generate": {
+      "command": "npx prisma generate --config libs/prisma/prisma.config.js"
+    },
+    "init": {
+      "command": "npx prisma migrate dev --name init --config libs/prisma/prisma.config.js"
+    },
+    "migrate": {
+      "command": "npx prisma migrate dev --config libs/prisma/prisma.config.js"
+    },
+    "deploy": {
+      "command": "npx prisma migrate deploy --config libs/prisma/prisma.config.js"
+    },
+    "reset": {
+      "command": "npx prisma migrate reset --force --config libs/prisma/prisma.config.js"
+    },
+    "studio": {
+      "command": "npx prisma studio --config libs/prisma/prisma.config.js"
+    }
+  },
+  "tags": [],
+  "implicitDependencies": ["platform/zod"]
+}

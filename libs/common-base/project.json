@@ -1,0 +1,27 @@
+{
+  "name": "platform/common-base",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/common-base/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/common-base",
+        "main": "libs/common-base/src/index.ts",
+        "tsConfig": "libs/common-base/tsconfig.lib.json",
+        "assets": []
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "fix": true,
+        "lintFilePatterns": ["libs/common-base/**/*.ts"]
+      }
+    }
+  },
+  "tags": [],
+  "implicitDependencies": ["platform/zod", "platform/prisma"]
+}

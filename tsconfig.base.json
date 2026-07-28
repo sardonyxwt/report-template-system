@@ -1,0 +1,30 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "ignoreDeprecations": "6.0",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "types": ["node"],
+    "target": "es2018",
+    "module": "esnext",
+    "lib": ["es2021", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "paths": {
+      "platform/common-base": ["./libs/common-base/src/index.ts"],
+      "platform/common-server": ["./libs/common-server/src/index.ts"],
+      "platform/zod": ["./libs/zod/src/index.ts"],
+      "platform/prisma": ["./libs/prisma/src/index.ts"],
+      "platform/prisma/data": ["./libs/prisma/src/data/index.ts"],
+      "platform/prisma/types": ["./libs/prisma/client/browser.ts"],
+      "platform/prisma/client": ["./libs/prisma/client/client.ts"]
+    }
+  },
+  "exclude": ["node_modules", "tmp", "temp", "dist", ".nx"]
+}

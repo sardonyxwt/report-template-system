@@ -1,0 +1,49 @@
+{
+  "blocks": [
+    {
+      "type": "cover",
+      "enabled": true,
+      "template": "<header class=\"report-cover\"><p>{{clinic}}</p><h1>{{title}}</h1><p>Assessment: {{assessmentDate}} · Generated: {{generatedAt}}</p><div class=\"people\"><div><strong>Patient</strong><span>{{patient.name}}</span></div><div><strong>Prepared by</strong><span>{{preparedBy.name}}</span></div></div></header>"
+    },
+    {
+      "type": "summary",
+      "enabled": true,
+      "template": "<section class=\"summary\"><h2>Your Health Status</h2><blockquote>{{content}}</blockquote>{{#if author}}<cite>— {{author}}</cite>{{/if}}</section>"
+    },
+    {
+      "type": "story",
+      "enabled": true,
+      "template": "<section class=\"story\"><h2>Your Story</h2><ul>{{#each items}}<li><strong>{{title}}:</strong> {{description}}</li>{{/each}}</ul></section>"
+    },
+    {
+      "type": "goals",
+      "enabled": true,
+      "template": "<section class=\"goals\"><h2>Your Goals</h2>{{#each goals}}<article><h3>{{title}}</h3><p>{{reason}} · {{timeframe}}</p><table><tbody>{{#each metrics}}<tr><th>{{name}}</th><td>{{currentValue}}</td><td>{{targetValue}}</td><td>{{timeframe}}</td></tr>{{/each}}</tbody></table></article>{{/each}}</section>"
+    },
+    {
+      "type": "plan",
+      "enabled": true,
+      "template": "<section class=\"plan\"><h2>Your Plan</h2><p>{{description}}</p>{{#each groups}}<h3>{{label}}</h3><ul>{{#each items}}<li>{{title}}</li>{{/each}}</ul>{{/each}}</section>"
+    },
+    {
+      "type": "orders",
+      "enabled": true,
+      "template": "<section class=\"orders\"><h2>Orders</h2><div class=\"columns\">{{#each groups}}<div><h3>{{title}}</h3><ul>{{#each items}}<li>{{this}}</li>{{/each}}</ul></div>{{/each}}</div></section>"
+    },
+    {
+      "type": "timeline",
+      "enabled": true,
+      "template": "<section class=\"timeline\"><h2>Timeline & Follow-up</h2>{{#each groups}}<article><h3>{{#if label}}{{label}}{{else}}{{offset}} {{unit}}{{/if}}</h3><ul>{{#each items}}<li><strong>{{planItemTitle}}:</strong> {{milestone}}</li>{{/each}}</ul></article>{{/each}}</section>"
+    },
+    {
+      "type": "coach",
+      "enabled": false,
+      "template": "<section class=\"coach\"><h2>Your Coach</h2>{{#each items}}<article><h3>{{title}}</h3><h4>What to do</h4><p>{{whatToDo}}</p><h4>Why it matters</h4><p>{{whyItMatters}}</p><h4>Week 1 plan</h4><p>{{weekOnePlan}}</p></article>{{/each}}</section>"
+    },
+    {
+      "type": "healthDeepDive",
+      "enabled": true,
+      "template": "<section class=\"health-deep-dive\"><h2>Health Deep Dive</h2>{{#each domains}}<article data-status=\"{{status}}\"><h3>{{title}} <span>{{status}}</span></h3><p>{{summary}}</p><table><tbody>{{#each biomarkers}}<tr><td>{{relevancy}}</td><th>{{name}}</th><td>{{value}}</td><td>{{referenceRange}}</td><td>{{optimalRange}}</td><td>{{measuredAt}}</td></tr>{{/each}}</tbody></table></article>{{/each}}</section>"
+    }
+  ]
+}

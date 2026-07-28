@@ -1,0 +1,27 @@
+{
+  "name": "platform/common-server",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/common-server/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/common-server",
+        "main": "libs/common-server/src/index.ts",
+        "tsConfig": "libs/common-server/tsconfig.lib.json",
+        "assets": []
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "fix": true,
+        "lintFilePatterns": ["libs/common-server/**/*.ts"]
+      }
+    }
+  },
+  "tags": [],
+  "implicitDependencies": ["platform/prisma"]
+}

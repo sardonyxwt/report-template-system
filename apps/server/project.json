@@ -1,0 +1,72 @@
+{
+  "name": "platform/server",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/server/src",
+  "projectType": "application",
+  "tags": [],
+  "implicitDependencies": ["platform/zod", "platform/prisma", "platform/common-base", "platform/common-server"],
+  "targets": {
+    "build": {
+      "executor": "@nx/webpack:webpack",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "defaultConfiguration": "production",
+      "dependsOn": ["^generate"],
+      "options": {
+        "target": "node",
+        "compiler": "tsc",
+        "outputPath": "dist/apps/server",
+        "main": "apps/server/src/main.ts",
+        "tsConfig": "apps/server/tsconfig.app.json",
+        "isolatedConfig": true,
+        "webpackConfig": "apps/server/webpack.config.js"
+      },
+      "configurations": {
+        "development": {
+          "typeCheckOptions": false
+        },
+        "production": {}
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "platform/server:build"
+      },
+      "dependsOn": [],
+      "configurations": {
+        "development": {
+          "buildTarget": "platform/server:build:development"
+        },
+        "production": {
+          "buildTarget": "platform/server:build:production"
+        }
+      }
+    },
+    "test": {
+      "dependsOn": [],
+      "defaultConfiguration": "default",
+      "options": {
+        "testTimeout": 60000,
+        "passWithNoTests": true
+      },
+      "configurations": {
+        "default": {
+          "coverage": false
+        },
+        "coverage": {
+          "coverage": true
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "fix": true,
+        "lintFilePatterns": ["apps/server/**/*.ts"]
+      }
+    }
+  }
+}

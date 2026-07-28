@@ -1,0 +1,26 @@
+{
+  "name": "platform/zod",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/zod/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/zod",
+        "main": "libs/zod/src/index.ts",
+        "tsConfig": "libs/zod/tsconfig.lib.json",
+        "assets": []
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "fix": true,
+        "lintFilePatterns": ["libs/zod/**/*.ts"]
+      }
+    }
+  },
+  "tags": []
+}
