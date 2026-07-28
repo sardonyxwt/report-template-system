@@ -1,6 +1,7 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
+    "baseUrl": ".",
     "rootDir": ".",
     "sourceMap": true,
     "declaration": false,
@@ -17,6 +18,7 @@
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "paths": {
+      "@/*": ["./apps/client/src/*"],
       "platform/common-base": ["./libs/common-base/src/index.ts"],
       "platform/common-server": ["./libs/common-server/src/index.ts"],
       "platform/zod": ["./libs/zod/src/index.ts"],

@@ -1,11 +1,12 @@
 # Platform Test
 
-Platform is an Nx monorepo that currently contains a NestJS backend API, shared API contracts, Prisma database schema, and server-side utilities. The backend is organized around reusable endpoint definitions and Zod schemas so the same contracts can drive request validation, response validation, typed client helpers, and OpenAPI documentation.
+Platform is an Nx monorepo with a NestJS backend API, React client, shared API contracts, Prisma database schema, and server-side utilities. The backend is organized around reusable endpoint definitions and Zod schemas so the same contracts can drive request validation, response validation, typed client helpers, and OpenAPI documentation.
 
 ## Technology Stack
 
 - Runtime: Node.js with TypeScript.
 - Workspace: Nx.
+- Client: React 19, Vite, React Router, Tailwind CSS, and ShadCN.
 - Backend framework: NestJS 11 on Express.
 - Database: PostgreSQL, managed through Prisma 7.
 - Validation and contracts: Zod 4, custom aliases in `platform/zod`, and generated Prisma Zod schemas.
@@ -19,6 +20,12 @@ Platform is an Nx monorepo that currently contains a NestJS backend API, shared 
 
 ```text
 apps/
+  client/                 React single-page application
+    src/
+      api/                Contract-driven browser API transport
+      components/         ShadCN UI, forms, tables, and shared views
+      providers/          Authentication and centralized access control
+      routes/             Route paths and React Router configuration
   server/                 NestJS application
     src/
       future/             Domain-facing API modules
@@ -87,6 +94,49 @@ POSTGRES_USER
 
 `DATABASE_URL` must point to the PostgreSQL database started by `compose.dev.yml`. `DATABASE_PORT`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` are used by that compose file.
 
+The browser client reads the root `.env` file and validates:
+
+```text
+VITE_API_URL
+```
+
+Optional client ports default to `4201` for the development server and `4301`
+for Vite preview:
+
+```text
+VITE_CLIENT_PORT
+VITE_CLIENT_PREVIEW_PORT
+```
+
+For local OAuth, the server and client origins must match the browser URLs:
+
+```text
+CORS_ORIGIN=http://localhost:4201
+GOOGLE_REDIRECT_URL=http://localhost:4201/oauth/google
+VITE_API_URL=http://localhost:60000
+```
+
+The same callback URL must be registered in the Google OAuth client.
+
+### Test Environment
+
+Before running the server tests, create `.env.test` in the workspace root:
+
+```dotenv
+HOST=localhost
+PORT=60001
+DATABASE_URL=postgresql://<user>:<password>@localhost:<port>/<test-database>
+```
+
+The test configuration is loaded after `.env` and `.env.local`, so these values
+override the corresponding local-development settings. `DATABASE_URL` must point
+to a dedicated disposable test database: `npm run server:test` resets that
+database before running the test suite. Never use a development, shared, or
+production database here.
+
+`.env.test` is ignored by Git and must be created locally for each development
+environment.
+
 ## First Run
 
 1. Install dependencies:
@@ -121,6 +171,12 @@ npm run prisma:migrate
 npm run server:serve
 ```
 
+7. In another terminal, start the React client:
+
+```bash
+npm run client:serve
+```
+
 The server binds to `HOST` and `PORT` from `.env`. Useful development endpoints:
 
 - `GET /status` checks server status.
@@ -131,6 +187,13 @@ The server binds to `HOST` and `PORT` from `.env`. Useful development endpoints:
 ```bash
 # Start the server in development mode
 npm run server:serve
+
+# Start the React SPA in development mode
+npm run client:serve
+
+# Type-check and build the React SPA
+npm run client:typecheck
+npm run client:build
 
 # Build the server
 npm run server:build

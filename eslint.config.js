@@ -91,9 +91,11 @@ export default [
   {
     files: [
       '**/*.ts',
+      '**/*.tsx',
       '**/*.cts',
       '**/*.mts',
       '**/*.js',
+      '**/*.jsx',
       '**/*.mjs',
       '**/*.cjs',
     ],
@@ -107,7 +109,7 @@ export default [
           project: './tsconfig.base.json',
         },
         node: {
-          extensions: ['.js', '.mjs', '.cjs', '.ts', '.mts', '.cts'],
+          extensions: ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts'],
         },
       },
     },
