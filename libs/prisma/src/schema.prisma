@@ -7,6 +7,10 @@ generator client {
   output   = "../client"
 }
 
+generator json {
+  provider = "prisma-json-types-generator"
+}
+
 generator zod {
   provider = "prisma-zod-generator"
   output   = "./schema"
@@ -55,16 +59,16 @@ model User {
 }
 
 model Manager {
-  userId Int     @id @map("user_id")
-  user   User    @relation("user_to_manager", fields: [userId], references: [id], onDelete: Cascade)
-  clinic Clinic? @relation("manager_to_clinic")
+  userId  Int      @id @map("user_id")
+  user    User     @relation("user_to_manager", fields: [userId], references: [id], onDelete: Cascade)
+  clinics Clinic[] @relation("manager_to_clinic")
 
   @@map("managers")
 }
 
 model Clinic {
   id        Int     @id @default(autoincrement())
-  managerId Int     @unique @map("manager_id")
+  managerId Int     @map("manager_id")
   name      String
   manager   Manager @relation("manager_to_clinic", fields: [managerId], references: [userId], onDelete: Cascade)
 
@@ -91,6 +95,7 @@ model Template {
   clinicId       Int             @map("clinic_id")
   name           String
   /// @zod.custom.use(TemplateDataSchema)
+  /// [TemplateData]
   data           Json
   clinic         Clinic          @relation("clinic_to_templates", fields: [clinicId], references: [id], onDelete: Cascade)
   patientReports PatientReport[] @relation("template_to_patient_reports")
@@ -105,6 +110,7 @@ model ClinicReport {
   clinicId      Int            @map("clinic_id")
   createdAt     DateTime       @default(now()) @map("created_at")
   /// @zod.custom.use(ReportDataSchema)
+  /// [ReportData]
   data          Json
   patient       Patient        @relation("patient_to_reports", fields: [patientId], references: [userId], onDelete: Cascade)
   clinic        Clinic         @relation("clinic_to_reports", fields: [clinicId], references: [id], onDelete: Cascade)

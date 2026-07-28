@@ -1,13 +1,11 @@
 import { ZodType } from 'zod';
-import { EndpointsTags, HttpMethod } from './enums';
+import { HttpMethod } from './enums';
 
 export type ApiRequestProps<Body, Res> = {
   path: string;
   method: HttpMethod;
   headers?: Headers;
   body?: Body;
-  tags?: EndpointsTags[];
-  revalidate?: EndpointsTags[];
   resTransformer?: (res: Response) => Promise<Res> | Res;
 };
 
@@ -59,8 +57,6 @@ export type ApiEndpoint = {
   status?: number;
   params?: ZodType;
   body?: ZodType;
-  tags?: EndpointsTags[];
-  revalidate?: EndpointsTags[];
   response: ZodType | ApiEndpointAttachmentResponse;
   guards?: ApiEndpointGuard[];
 };

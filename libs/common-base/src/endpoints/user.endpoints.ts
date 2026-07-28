@@ -8,7 +8,7 @@ import {
   UsersResponseSchema,
   UserUpdateRequestSchema,
 } from '../data/user/user.data';
-import { HttpStatus, EndpointsTags, HttpMethod } from '../enums';
+import { HttpMethod, HttpStatus } from '../enums';
 import { ApiEndpoints } from '../types';
 
 const root = 'user';
@@ -16,9 +16,7 @@ const root = 'user';
 /**
  * Creates shared user endpoint contracts.
  *
- * The map includes admin-style CRUD and aggregate selection. Mutation
- * endpoints declare `revalidate` tags so client adapters can keep user-related
- * caches consistent.
+ * The map includes admin-style CRUD and aggregate selection.
  */
 export const createUserEndpoints = (base = '') =>
   ({
@@ -29,11 +27,6 @@ export const createUserEndpoints = (base = '') =>
       body: UserCreateRequestSchema as ZodType,
       response: UserResponseSchema as ZodType,
       guards: ['auth'],
-      revalidate: [
-        EndpointsTags.User,
-        EndpointsTags.Author,
-        EndpointsTags.Manager,
-      ],
     },
     update: {
       method: HttpMethod.Put,
@@ -41,11 +34,6 @@ export const createUserEndpoints = (base = '') =>
       body: UserUpdateRequestSchema as ZodType,
       response: UserResponseSchema as ZodType,
       guards: ['auth'],
-      revalidate: [
-        EndpointsTags.User,
-        EndpointsTags.Author,
-        EndpointsTags.Manager,
-      ],
     },
     delete: {
       method: HttpMethod.Delete,
@@ -54,11 +42,6 @@ export const createUserEndpoints = (base = '') =>
       params: ActionNumberIdParamsSchema as ZodType,
       response: UserResponseSchema as ZodType,
       guards: ['auth'],
-      revalidate: [
-        EndpointsTags.User,
-        EndpointsTags.Author,
-        EndpointsTags.Manager,
-      ],
     },
     findMany: {
       method: HttpMethod.Post,
@@ -66,7 +49,6 @@ export const createUserEndpoints = (base = '') =>
       body: UserAggregateRequestSchema as ZodType,
       response: UsersResponseSchema as ZodType,
       guards: ['auth'],
-      tags: [EndpointsTags.User],
     },
   }) satisfies ApiEndpoints;
 

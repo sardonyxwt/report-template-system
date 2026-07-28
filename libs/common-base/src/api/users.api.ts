@@ -34,8 +34,8 @@ export const createUsersApi = (
      * Executes the raw aggregate user query contract.
      */
     findMany: (body: UserAggregateRequest): Promise<UsersResponse> => {
-      const { path, method, tags } = endpoints.findMany;
-      return request({ path, method, body, tags });
+      const { path, method } = endpoints.findMany;
+      return request({ path, method, body });
     },
     /**
      * Builds a common paginated/filterable user query from practical UI inputs.
@@ -76,13 +76,12 @@ export const createUsersApi = (
      * no record matches.
      */
     findOne: async (id: number): Promise<UserResponse | null> => {
-      const { path, method, tags } = endpoints.findMany;
+      const { path, method } = endpoints.findMany;
       const { items, total } = await request<
         UserAggregateRequest,
         UsersResponse
       >({
         path,
-        tags,
         method,
         body: { where: { id } },
       });
@@ -96,22 +95,22 @@ export const createUsersApi = (
      * Creates a user and returns the public user response shape.
      */
     create: (body: UserCreateRequest): Promise<UserResponse> => {
-      const { path, method, revalidate } = endpoints.create;
-      return request({ path, method, body, revalidate });
+      const { path, method } = endpoints.create;
+      return request({ path, method, body });
     },
     /**
-     * Updates a user and invalidates configured cache tags.
+     * Updates a user and returns the public user response shape.
      */
     update: (body: UserUpdateRequest): Promise<UserResponse> => {
-      const { path, method, revalidate } = endpoints.update;
-      return request({ path, method, body, revalidate });
+      const { path, method } = endpoints.update;
+      return request({ path, method, body });
     },
     /**
      * Deletes a user by id using the endpoint URL builder.
      */
     del: (id: number): Promise<UserResponse> => {
-      const { method, build, revalidate } = endpoints.delete;
-      return request({ path: build(id), method, revalidate });
+      const { method, build } = endpoints.delete;
+      return request({ path: build(id), method });
     },
   };
 

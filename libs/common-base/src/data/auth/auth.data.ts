@@ -1,33 +1,15 @@
 import { z } from 'zod';
-import { UserSchema, UserRole } from 'platform/prisma';
+import { UserSchema } from 'platform/prisma';
 import { aliases } from 'platform/zod';
 import { UserResponseSchema } from '../user/user.data';
 
 /**
  * Minimal user identity embedded into access and refresh JWTs.
- *
- * Manager users must include packed manager abilities so authorization checks
- * can run without loading the manager row on every request.
  */
 export const JwtStrategyPayloadSchema = UserSchema.pick({
   id: true,
   role: true,
-})
-  .extend({
-    managerAbilities: aliases.notEmptyString.optional(),
-  })
-  .superRefine((arg, ctx) => {
-    if (arg.role === UserRole.Manager) {
-      if (!arg.managerAbilities) {
-        ctx.addIssue({
-          path: ['managerAbilities'],
-          code: 'custom',
-          message: 'managerAbilities requires if role === Manager',
-        });
-      }
-    }
-  })
-  .meta({ name: 'JwtStrategyPayloadSchema' });
+}).meta({ name: 'JwtStrategyPayloadSchema' });
 
 /**
  * Access/refresh token pair returned to non-cookie clients.

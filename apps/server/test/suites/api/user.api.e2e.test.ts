@@ -84,7 +84,7 @@ describe('api.user', () => {
     const admin = await macros.createAuthorizedAdmin();
     const user = await macros.createAuthorizedUser();
 
-    const userAggregationData: UserAggregateRequest = {
+    const userAggregateRequestDto: UserAggregateRequest = {
       where: {
         role: UserRole.User,
       },
@@ -95,7 +95,7 @@ describe('api.user', () => {
         ...endpoints.user.findMany,
         accessToken: admin.accessToken,
       })
-      .send(userAggregationData);
+      .send(userAggregateRequestDto);
 
     expect(res.status).toBe(HttpStatus.OK);
 

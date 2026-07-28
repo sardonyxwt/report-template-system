@@ -7,6 +7,10 @@ import {
 } from './utils/abilities.utils';
 import { isWho } from './utils/auth.utils';
 
+export interface OwnedEntityCheck {
+  managerId: number;
+}
+
 export type UserUpdateGuardedFields = Pick<User, 'id' | 'role' | 'email'>;
 
 export type UserReadCheck = {
@@ -20,6 +24,28 @@ export type UserUpdateCheck = {
 
 export type UserDeleteCheck = {
   role: UserRole;
+};
+
+export type PatientCreateCheck = OwnedEntityCheck & {
+  userRole: UserRole;
+  isAssigned: boolean;
+};
+
+export type ClinicUpdateCheck = {
+  clinic: OwnedEntityCheck;
+  updates: OwnedEntityCheck;
+};
+
+export type PatientReportCreateCheck = {
+  reportManagerId: number;
+  reportClinicId: number;
+  templateManagerId: number;
+  templateClinicId: number;
+};
+
+export type PatientReportReadCheck = {
+  patientId: number;
+  managerId: number;
 };
 
 /**
@@ -37,11 +63,9 @@ export const getUserAbilities = (payload?: JwtStrategyPayload) => {
   return {
     users: {
       read: (args: UserReadCheck) =>
-        isAdmin || isManager
+        isAdmin
           ? helper.forAdmin()
-          : helper.forUserOwner({
-              ownerId: args.userId,
-            }),
+          : helper.forUserOwner({ ownerId: args.userId }),
       create: () => helper.forAdmin(),
       update: ({ user, updates = user }: UserUpdateCheck) => {
         const authorizedCheck = helper.forAuthorized();
@@ -75,7 +99,110 @@ export const getUserAbilities = (payload?: JwtStrategyPayload) => {
     },
     managers: {
       create: helper.forAdmin,
-      delete: helper.forAdmin,
+      delete: () => helper.forAdmin(),
+    },
+    clinics: {
+      create: ({ managerId }: OwnedEntityCheck) =>
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
+      read: ({ managerId }: OwnedEntityCheck) =>
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
+      update: ({ clinic, updates }: ClinicUpdateCheck) => {
+        const ownerCheck = isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: clinic.managerId });
+
+        if (!ownerCheck.granted) {
+          return ownerCheck;
+        }
+
+        if (!isAdmin && clinic.managerId !== updates.managerId) {
+          return helper.decline(AbilityDeclineReason.ChangedProtectedFields);
+        }
+
+        return helper.grant;
+      },
+      delete: ({ managerId }: OwnedEntityCheck) => {
+        return isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId });
+      },
+    },
+    patients: {
+      create: ({ managerId, userRole, isAssigned }: PatientCreateCheck) => {
+        const ownerCheck = isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId });
+
+        if (!ownerCheck.granted) {
+          return ownerCheck;
+        }
+
+        if (userRole !== UserRole.User || isAssigned) {
+          return helper.decline(AbilityDeclineReason.EntityIncorrect);
+        }
+
+        return helper.grant;
+      },
+      read: ({ managerId }: OwnedEntityCheck) =>
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
+    },
+    templates: {
+      create: ({ managerId }: OwnedEntityCheck) =>
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
+      read: ({ managerId }: OwnedEntityCheck) =>
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
+      update: ({ managerId }: OwnedEntityCheck) =>
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
+      delete: ({ managerId }: OwnedEntityCheck) =>
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
+    },
+    clinicReports: {
+      read: ({ managerId }: OwnedEntityCheck) =>
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
+    },
+    patientReports: {
+      create: ({
+        reportManagerId,
+        reportClinicId,
+        templateManagerId,
+        templateClinicId,
+      }: PatientReportCreateCheck) => {
+        if (
+          reportClinicId !== templateClinicId ||
+          reportManagerId !== templateManagerId
+        ) {
+          return helper.decline(AbilityDeclineReason.EntityIncorrect);
+        }
+
+        return isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: reportManagerId });
+      },
+      read: ({ managerId, patientId }: PatientReportReadCheck) => {
+        if (isAdmin || isManager) {
+          return isAdmin
+            ? helper.forAdmin()
+            : helper.forManagerOwner({ ownerId: managerId });
+        }
+
+        return helper.forUserOwner({ ownerId: patientId });
+      },
     },
   } satisfies Record<string, Record<string, AbilityChecker>>;
 };

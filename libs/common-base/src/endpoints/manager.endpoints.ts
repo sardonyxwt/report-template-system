@@ -5,7 +5,7 @@ import {
   ManagerCreateRequestSchema,
   ManagerResponseSchema,
 } from '../data/manager/manager.data';
-import { HttpStatus, EndpointsTags, HttpMethod } from '../enums';
+import { HttpMethod, HttpStatus } from '../enums';
 import { ApiEndpoints } from '../types';
 
 const root = 'manager';
@@ -13,8 +13,7 @@ const root = 'manager';
 /**
  * Creates shared manager endpoint contracts.
  *
- * Manager mutations also affect the related user role, so the contracts
- * revalidate both manager and user cache tags.
+ * Manager mutations also affect the related user role.
  */
 export const createManagerEndpoints = (base = '') =>
   ({
@@ -25,7 +24,6 @@ export const createManagerEndpoints = (base = '') =>
       body: ManagerCreateRequestSchema as ZodType,
       response: ManagerResponseSchema as ZodType,
       guards: ['auth'],
-      revalidate: [EndpointsTags.User, EndpointsTags.Manager],
     },
     delete: {
       method: HttpMethod.Delete,
@@ -34,7 +32,6 @@ export const createManagerEndpoints = (base = '') =>
       params: ActionNumberIdParamsSchema as ZodType,
       response: ManagerResponseSchema as ZodType,
       guards: ['auth'],
-      revalidate: [EndpointsTags.User, EndpointsTags.Manager],
     },
   }) satisfies ApiEndpoints;
 

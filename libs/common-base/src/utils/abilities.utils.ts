@@ -93,6 +93,9 @@ export const createUserAbilitiesHelper = (payload?: JwtStrategyPayload) => {
 
   const forManager = () => forSomeone({ roles: [UserRole.Manager] });
 
+  const forManagerOwner = (args: OwnerActionCheck) =>
+    forOwner({ roles: [UserRole.Manager], ...args });
+
   const forUserOwner = (args: OwnerActionCheck) =>
     forOwner({ roles: [UserRole.User], ...args });
 
@@ -103,6 +106,7 @@ export const createUserAbilitiesHelper = (payload?: JwtStrategyPayload) => {
     forAdmin,
     forSomeone,
     forManager,
+    forManagerOwner,
     forAuthorized,
     forOwner,
     forUserOwner,

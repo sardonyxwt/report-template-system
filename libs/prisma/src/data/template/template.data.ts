@@ -80,22 +80,6 @@ export const TemplateBlockSchema = z.discriminatedUnion('type', [
   TemplateHealthDeepDiveBlockSchema,
 ]);
 
-export const TemplateDataSchema = z
-  .object({
-    blocks: z.array(TemplateBlockSchema).min(1),
-  })
-  .superRefine(({ blocks }, context) => {
-    const blockTypes = new Set<string>();
-
-    blocks.forEach((block, index) => {
-      if (blockTypes.has(block.type)) {
-        context.addIssue({
-          code: 'custom',
-          message: `Duplicate template block type: ${block.type}`,
-          path: ['blocks', index, 'type'],
-        });
-      }
-
-      blockTypes.add(block.type);
-    });
-  });
+export const TemplateDataSchema = z.object({
+  blocks: z.array(TemplateBlockSchema).min(1),
+});

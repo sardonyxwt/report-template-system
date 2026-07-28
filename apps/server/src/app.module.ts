@@ -22,9 +22,14 @@ import {
 } from 'platform/common-server';
 import { validateConfiguration, Configuration } from './configuration';
 import { AuthFutureModule } from './future/auth/auth.module';
+import { ClinicFutureModule } from './future/clinic/clinic.module';
+import { ClinicReportFutureModule } from './future/clinic-report/clinic-report.module';
 import { DocsFutureModule } from './future/docs/docs.module';
 import { ManagerFutureModule } from './future/manager/manager.module';
+import { PatientFutureModule } from './future/patient/patient.module';
+import { PatientReportFutureModule } from './future/patient-report/patient-report.module';
 import { StatusFutureModule } from './future/status/status.module';
+import { TemplateFutureModule } from './future/template/template.module';
 import { UserFutureModule } from './future/user/user.module';
 import { LoggerAuthMetaProvider } from './logger/logger-auth-meta.provider';
 import { LoggerRequestMetaProvider } from './logger/logger-request-meta.provider';
@@ -87,6 +92,11 @@ export const AppConfigModule = ConfigModule.forRoot({
     AuthFutureModule,
     UserFutureModule,
     ManagerFutureModule,
+    ClinicFutureModule,
+    PatientFutureModule,
+    TemplateFutureModule,
+    ClinicReportFutureModule,
+    PatientReportFutureModule,
     DocsFutureModule,
     StatusFutureModule,
   ],

@@ -26,4 +26,5 @@ export * from './aggregations';
 export { UserRole, AuthProviderType, Prisma } from 'platform/prisma/types';
 
 export * from './include/manager.include';
+export * from './include/patient-report.include';
 export * from './include/user.include';

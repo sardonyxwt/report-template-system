@@ -34,23 +34,23 @@ describe('api.manager', () => {
 
   it('delete', async () => {
     const admin = await macros.createAuthorizedAdmin();
-    const [manager] = await macros.createAuthorizedManager(admin);
+    const [managerData] = await macros.createAuthorizedManager(admin);
 
     const res = await context.apiCall({
       method: endpoints.manager.delete.method,
-      path: endpoints.manager.delete.build(manager.userId),
+      path: endpoints.manager.delete.build(managerData.userId),
       accessToken: admin.accessToken,
     });
 
     expect(res.status).toBe(HttpStatus.OK);
 
-    const user = await context.prisma.user.findFirst({
-      where: { id: manager.userId },
+    const updatedUser = await context.prisma.user.findFirst({
+      where: { id: managerData.userId },
       include: { manager: true },
     });
 
-    expect(user).toBeTruthy();
-    expect(user!.manager).toBeNull();
-    expect(user!.role === UserRole.User).toBeTruthy();
+    expect(updatedUser).toBeTruthy();
+    expect(updatedUser!.manager).toBeNull();
+    expect(updatedUser!.role === UserRole.User).toBeTruthy();
   });
 });

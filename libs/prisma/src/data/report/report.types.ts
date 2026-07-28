@@ -36,7 +36,6 @@ import {
   ReportStoryValueSchema,
   ReportSummaryBlockSchema,
   ReportSummaryValueSchema,
-  ReportTemplateBindingSchema,
   ReportTimelineBlockSchema,
   ReportTimelineGroupSchema,
   ReportTimelineItemSchema,
@@ -95,4 +94,3 @@ export type ReportHealthDeepDiveBlock = z.infer<
 >;
 export type ReportBlock = z.infer<typeof ReportBlockSchema>;
 export type ReportData = z.infer<typeof ReportDataSchema>;
-export type ReportTemplateBinding = z.infer<typeof ReportTemplateBindingSchema>;

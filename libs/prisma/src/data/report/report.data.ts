@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { TemplateDataSchema } from '../template/template.data';
 
 export const ReportBlockTypeSchema = z.enum([
   'cover',
@@ -244,41 +243,6 @@ export const ReportBlockSchema = z.discriminatedUnion('type', [
   ReportHealthDeepDiveBlockSchema,
 ]);
 
-export const ReportDataSchema = z
-  .object({
-    blocks: z.array(ReportBlockSchema).min(1),
-  })
-  .superRefine(({ blocks }, context) => {
-    const blockTypes = new Set<string>();
-
-    blocks.forEach((block, index) => {
-      if (blockTypes.has(block.type)) {
-        context.addIssue({
-          code: 'custom',
-          message: `Duplicate report block type: ${block.type}`,
-          path: ['blocks', index, 'type'],
-        });
-      }
-
-      blockTypes.add(block.type);
-    });
-  });
-
-export const ReportTemplateBindingSchema = z
-  .object({
-    template: TemplateDataSchema,
-    report: ReportDataSchema,
-  })
-  .superRefine(({ template, report }, context) => {
-    const reportBlockTypes = new Set(report.blocks.map((block) => block.type));
-
-    template.blocks.forEach((block) => {
-      if (block.enabled && !reportBlockTypes.has(block.type)) {
-        context.addIssue({
-          code: 'custom',
-          message: `Report data is missing enabled template block: ${block.type}`,
-          path: ['report', 'blocks'],
-        });
-      }
-    });
-  });
+export const ReportDataSchema = z.object({
+  blocks: z.array(ReportBlockSchema).min(1),
+});

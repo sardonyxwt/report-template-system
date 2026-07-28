@@ -27,8 +27,11 @@ export const createUserHelper = (appModule: AppTestModule) => {
 
   const createUser = () => createAndActivate(userFixtures.user);
 
-  const createManager = async (context: AuthContext) => {
-    const user = await createUser();
+  const createManager = async (
+    context: AuthContext,
+    userFixture: UserCreateRequest = userFixtures.user,
+  ) => {
+    const user = await createAndActivate(userFixture);
 
     const manager = await appModule.withContext(context, () =>
       appModule.app

@@ -1,4 +1,5 @@
 import { ManagerResponse, UserResponse } from 'platform/common-base';
+import { UserRole } from 'platform/prisma';
 import {
   AuthContext,
   PostSetupTestModule,
@@ -39,11 +40,32 @@ export const withAppContext = (postSetup?: PostSetupTestModule) => {
       async createAuthorizedUser() {
         return authHelper.authorize(await userHelper.createUser());
       },
+      async createAuthorizedUserWithEmail(email: string) {
+        const user = await userHelper.createAndActivate({
+          email,
+          role: UserRole.User,
+        });
+        return authHelper.authorize(user);
+      },
       async createAuthorizedAdmin() {
         return authHelper.authorize(await userHelper.createAdmin());
       },
       async createAuthorizedManager(context: AuthContext) {
         const [manager, user] = await userHelper.createManager(context);
+        const authorizedUser = await authHelper.authorize(user);
+        return [{ ...manager, user }, authorizedUser] satisfies [
+          ManagerResponse,
+          UserResponse,
+        ];
+      },
+      async createAuthorizedManagerWithEmail(
+        context: AuthContext,
+        email: string,
+      ) {
+        const [manager, user] = await userHelper.createManager(context, {
+          email,
+          role: UserRole.User,
+        });
         const authorizedUser = await authHelper.authorize(user);
         return [{ ...manager, user }, authorizedUser] satisfies [
           ManagerResponse,

@@ -23,10 +23,10 @@ describe('api.auth', () => {
 
     expect(res.status).toBe(HttpStatus.OK);
 
-    const responseDto = res.body as UserResponse;
+    const userData = res.body as UserResponse;
 
-    expect(responseDto.email === user.email).toBeTruthy();
-    expect(responseDto.role === user.role).toBeTruthy();
+    expect(userData.email === user.email).toBeTruthy();
+    expect(userData.role === user.role).toBeTruthy();
   });
 
   it('profile by cookie', async () => {
@@ -39,10 +39,10 @@ describe('api.auth', () => {
 
     expect(res.status).toBe(HttpStatus.OK);
 
-    const responseDto = res.body as UserResponse;
+    const userData = res.body as UserResponse;
 
-    expect(responseDto.email).toBe(user.email);
-    expect(responseDto.role).toBe(user.role);
+    expect(userData.email).toBe(user.email);
+    expect(userData.role).toBe(user.role);
   });
 
   it('profile by signed cookie', async () => {
@@ -60,10 +60,10 @@ describe('api.auth', () => {
 
     expect(res.status).toBe(HttpStatus.OK);
 
-    const responseDto = res.body as UserResponse;
+    const userData = res.body as UserResponse;
 
-    expect(responseDto.email).toBe(user.email);
-    expect(responseDto.role).toBe(user.role);
+    expect(userData.email).toBe(user.email);
+    expect(userData.role).toBe(user.role);
   });
 
   it('refresh', async () => {
@@ -76,42 +76,40 @@ describe('api.auth', () => {
 
     expect(res.status).toBe(HttpStatus.OK);
 
-    const tokens = res.body as TokensResponse;
+    const tokensData = res.body as TokensResponse;
 
-    expect(tokens.accessToken).toBeTruthy();
-    expect(tokens.refreshToken).toBeTruthy();
+    expect(tokensData.accessToken).toBeTruthy();
+    expect(tokensData.refreshToken).toBeTruthy();
 
-    const validateUser = await context.prisma.user.findFirst({
+    const updatedUser = await context.prisma.user.findFirst({
       where: { id: user.id },
     });
 
-    expect(validateUser).toBeTruthy();
-    expect(validateUser!.accessToken).toBeTruthy();
+    expect(updatedUser).toBeTruthy();
+    expect(updatedUser!.accessToken).toBeTruthy();
   });
 
   it('refresh session', async () => {
     const user = await helpers.user.createAndActivate(userFixtures.user);
 
-    const refreshSessionRes = await context.apiCall({
+    const res = await context.apiCall({
       ...endpoints.auth.refreshSession,
       cookies: [`${AUTH_REFRESH_COOKIE_KEY}=${user.tokens.refreshToken}`],
     });
 
-    const refreshedCookies = refreshSessionRes.headers[
-      'set-cookie'
-    ] as unknown as string[];
+    const refreshedCookies = res.headers['set-cookie'] as unknown as string[];
 
     expect(refreshedCookies && refreshedCookies.length > 0).toBeTruthy();
     expect(
       refreshedCookies.find((cookie) => cookie.startsWith(AUTH_COOKIE_KEY)),
     ).toBeTruthy();
 
-    const validateUser = await context.prisma.user.findFirst({
+    const updatedUser = await context.prisma.user.findFirst({
       where: { id: user.id },
     });
 
-    expect(validateUser).toBeTruthy();
-    expect(validateUser!.accessToken).toBeTruthy();
+    expect(updatedUser).toBeTruthy();
+    expect(updatedUser!.accessToken).toBeTruthy();
   });
 
   it('logout', async () => {
@@ -124,13 +122,13 @@ describe('api.auth', () => {
 
     expect(res.status).toBe(HttpStatus.OK);
 
-    const validateUser = await context.prisma.user.findFirst({
+    const updatedUser = await context.prisma.user.findFirst({
       where: { id: user.id },
     });
 
-    expect(validateUser).toBeTruthy();
-    expect(!validateUser!.accessToken).toBeTruthy();
-    expect(!validateUser!.refreshToken).toBeTruthy();
+    expect(updatedUser).toBeTruthy();
+    expect(!updatedUser!.accessToken).toBeTruthy();
+    expect(!updatedUser!.refreshToken).toBeTruthy();
   });
 
   it('check access token', async () => {
@@ -145,13 +143,13 @@ describe('api.auth', () => {
         refreshToken: user.refreshToken,
       });
 
-    const responseDto = res.body as CheckSessionResponse;
+    const checkSessionData = res.body as CheckSessionResponse;
 
     expect(res.status).toBe(HttpStatus.OK);
-    expect(responseDto.active).toBeTruthy();
-    expect(responseDto.refreshable).toBeTruthy();
-    expect(responseDto.accessExpiresAt).toBeGreaterThan(0);
-    expect(responseDto.refreshExpiresAt).toBeGreaterThan(0);
+    expect(checkSessionData.active).toBeTruthy();
+    expect(checkSessionData.refreshable).toBeTruthy();
+    expect(checkSessionData.accessExpiresAt).toBeGreaterThan(0);
+    expect(checkSessionData.refreshExpiresAt).toBeGreaterThan(0);
   });
 
   it('check cookies', async () => {
@@ -165,12 +163,12 @@ describe('api.auth', () => {
       ],
     });
 
-    const responseDto = res.body as CheckSessionResponse;
+    const checkSessionData = res.body as CheckSessionResponse;
 
     expect(res.status).toBe(HttpStatus.OK);
-    expect(responseDto.active).toBeTruthy();
-    expect(responseDto.refreshable).toBeTruthy();
-    expect(responseDto.accessExpiresAt).toBeGreaterThan(0);
-    expect(responseDto.refreshExpiresAt).toBeGreaterThan(0);
+    expect(checkSessionData.active).toBeTruthy();
+    expect(checkSessionData.refreshable).toBeTruthy();
+    expect(checkSessionData.accessExpiresAt).toBeGreaterThan(0);
+    expect(checkSessionData.refreshExpiresAt).toBeGreaterThan(0);
   });
 });
