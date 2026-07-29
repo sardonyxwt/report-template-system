@@ -1,13 +1,12 @@
 import { Navigate, Outlet } from 'react-router-dom';
-import { FullPageLoader } from '../components/full-page-loader.component';
 import { useAuth } from '../providers/auth.provider';
 import { routes } from './config';
 
 export const AuthenticatedRoute = () => {
-  const { status, isAuthenticated } = useAuth();
+  const { isAuthenticated, isAuthPending } = useAuth();
 
-  if (status === 'checking') {
-    return <FullPageLoader />;
+  if (isAuthPending) {
+    return null;
   }
 
   return isAuthenticated ? <Outlet /> : <Navigate to={routes.home} replace />;

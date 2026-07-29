@@ -2,7 +2,6 @@ import { TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { FullPageLoader } from '../../components/full-page-loader.component';
 import { Button } from '../../components/shadcn/ui/button';
 import {
   Empty,
@@ -22,7 +21,7 @@ export const OauthCallbackPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const startedRef = useRef(false);
-  const { completeGoogleOauth, isAuthenticated, user } = useAuth();
+  const { completeGoogleOauth, isAuthenticated, status, user } = useAuth();
   const access = useAccessControl();
   const oauthRequest = useRequest(completeGoogleOauth, {
     onSuccess: () => toast.success('You are signed in.'),
@@ -30,12 +29,12 @@ export const OauthCallbackPage = () => {
   });
 
   useEffect(() => {
-    if (startedRef.current || isAuthenticated) {
+    if (status === 'checking' || startedRef.current || isAuthenticated) {
       return;
     }
     startedRef.current = true;
     void oauthRequest.fetch(searchParams.toString()).catch(() => undefined);
-  }, [isAuthenticated, oauthRequest, searchParams]);
+  }, [isAuthenticated, oauthRequest, searchParams, status]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -59,7 +58,7 @@ export const OauthCallbackPage = () => {
           <EmptyContent className="flex-row justify-center">
             <Button
               onClick={() => {
-                startedRef.current = false;
+                startedRef.current = true;
                 void oauthRequest
                   .fetch(searchParams.toString())
                   .catch(() => undefined);
@@ -76,5 +75,5 @@ export const OauthCallbackPage = () => {
     );
   }
 
-  return <FullPageLoader message="Completing secure Google sign-in…" />;
+  return null;
 };

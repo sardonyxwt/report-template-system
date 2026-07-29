@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { endpoints } from '../api/client.api';
-import { FullPageLoader } from '../components/full-page-loader.component';
 import { Button } from '../components/shadcn/ui/button';
 import {
   Card,
@@ -21,11 +20,11 @@ import { useAuth } from '../providers/auth.provider';
 import { getDefaultAppRoute } from '../routes/config';
 
 export const HomePage = () => {
-  const { status, isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isAuthPending, user } = useAuth();
   const access = useAccessControl();
 
-  if (status === 'checking') {
-    return <FullPageLoader />;
+  if (isAuthPending) {
+    return null;
   }
 
   if (isAuthenticated) {

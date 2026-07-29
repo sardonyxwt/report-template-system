@@ -213,7 +213,7 @@ export const ResourcePage = <Data,>({
                 onPageChange={changePage}
               />
             ) : (
-              <Empty className="min-h-80 rounded-xl border bg-card">
+              <Empty className="min-h-64 rounded-xl border bg-card">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <PlusIcon />
@@ -226,19 +226,25 @@ export const ResourcePage = <Data,>({
               </Empty>
             )}
           </div>
-
           <div
-            className={`absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background transition-opacity duration-200 ease-in-out ${
-              loading
-                ? 'cursor-wait opacity-100'
-                : 'pointer-events-none opacity-0'
+            className={`absolute inset-0 flex min-h-0 flex-1 flex-col transition-opacity duration-200 ease-in-out ${
+              loading ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
             aria-hidden={!loading}
+            inert={!loading}
           >
-            <div role="status" className="flex items-center justify-center">
-              <Spinner className="size-6 text-muted-foreground" />
-              <span className="sr-only">Loading {title.toLowerCase()}…</span>
-            </div>
+            <Empty className="min-h-64 rounded-xl border bg-card" role="status">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Spinner />
+                </EmptyMedia>
+                <EmptyTitle>Processing your request</EmptyTitle>
+                <EmptyDescription>
+                  Please wait while we process your request. Do not refresh the
+                  page.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </div>
         </div>
       </div>

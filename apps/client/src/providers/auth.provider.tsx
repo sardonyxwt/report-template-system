@@ -16,13 +16,14 @@ import {
 import { AuthProviderType } from 'platform/prisma';
 import { api } from '../api/client.api';
 
-type AuthStatus = 'checking' | 'guest' | 'authenticated';
+type AuthStatus = 'checking' | 'guest' | 'authenticating' | 'authenticated';
 
 type AuthContextValue = {
   status: AuthStatus;
   user?: ProfileResponse;
   abilities: UserAbilities;
   isAuthenticated: boolean;
+  isAuthPending: boolean;
   completeGoogleOauth: (query: string) => Promise<ProfileResponse>;
   logout: () => Promise<void>;
   reloadProfile: () => Promise<ProfileResponse>;
@@ -47,11 +48,19 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
   const completeGoogleOauth = useCallback(
     async (query: string) => {
-      await api.auth.createOauthSession({
-        provider: AuthProviderType.Google,
-        query,
-      });
-      return reloadProfile();
+      setStatus('authenticating');
+
+      try {
+        await api.auth.createOauthSession({
+          provider: AuthProviderType.Google,
+          query,
+        });
+        return await reloadProfile();
+      } catch (error) {
+        setUser(undefined);
+        setStatus('guest');
+        throw error;
+      }
     },
     [reloadProfile],
   );
@@ -112,6 +121,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       user,
       abilities,
       isAuthenticated: status === 'authenticated',
+      isAuthPending: status === 'checking' || status === 'authenticating',
       completeGoogleOauth,
       logout,
       reloadProfile,

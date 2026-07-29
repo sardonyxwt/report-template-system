@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from '../components/layout/app-layout.component';
+import { AuthLayout } from '../components/layout/auth-layout.component';
 import { ClinicReportDetailPage } from '../pages/clinic-report-detail/clinic-report-detail.page';
 import { ClinicReportsPage } from '../pages/clinic-reports.page';
 import { ClinicsPage } from '../pages/clinics.page';
@@ -29,42 +30,45 @@ const appSectionElements: Record<AppSection, ReactNode> = {
 
 export const router = createBrowserRouter([
   {
-    path: routes.home,
-    element: <HomePage />,
-    errorElement: <RouteErrorPage />,
-  },
-  {
-    path: routes.oauthGoogle,
-    element: <OauthCallbackPage />,
-    errorElement: <RouteErrorPage />,
-  },
-  {
-    element: <AuthenticatedRoute />,
+    element: <AuthLayout />,
     errorElement: <RouteErrorPage />,
     children: [
       {
-        path: routes.app.root,
-        element: <AppLayout />,
+        path: routes.home,
+        element: <HomePage />,
+      },
+      {
+        path: routes.oauthGoogle,
+        element: <OauthCallbackPage />,
+      },
+      {
+        element: <AuthenticatedRoute />,
         children: [
           {
-            index: true,
-            element: <AppIndexRoute />,
-          },
-          ...appSections.map(({ section, path }) => ({
-            path,
-            element: (
-              <SectionRoute section={section}>
-                {appSectionElements[section]}
-              </SectionRoute>
-            ),
-          })),
-          {
-            path: routes.app.clinicReport(':reportId'),
-            element: (
-              <SectionRoute section="clinicReports">
-                <ClinicReportDetailPage />
-              </SectionRoute>
-            ),
+            path: routes.app.root,
+            element: <AppLayout />,
+            children: [
+              {
+                index: true,
+                element: <AppIndexRoute />,
+              },
+              ...appSections.map(({ section, path }) => ({
+                path,
+                element: (
+                  <SectionRoute section={section}>
+                    {appSectionElements[section]}
+                  </SectionRoute>
+                ),
+              })),
+              {
+                path: routes.app.clinicReport(':reportId'),
+                element: (
+                  <SectionRoute section="clinicReports">
+                    <ClinicReportDetailPage />
+                  </SectionRoute>
+                ),
+              },
+            ],
           },
         ],
       },
