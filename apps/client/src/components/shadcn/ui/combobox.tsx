@@ -3,6 +3,7 @@ import { CheckIcon, ChevronDownIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '../lib/utils';
 import { Button } from './button';
+import { useDialogPortalContainer } from './dialog';
 import {
   InputGroup,
   InputGroupAddon,
@@ -90,21 +91,27 @@ function ComboboxContent({
   align = 'start',
   alignOffset = 0,
   anchor,
+  container,
   ...props
 }: ComboboxPrimitive.Popup.Props &
   Pick<
     ComboboxPrimitive.Positioner.Props,
     'side' | 'align' | 'sideOffset' | 'alignOffset' | 'anchor'
-  >) {
+  > &
+  Pick<ComboboxPrimitive.Portal.Props, 'container'>) {
+  const dialogPortalContainer = useDialogPortalContainer();
+
   return (
-    <ComboboxPrimitive.Portal>
+    <ComboboxPrimitive.Portal
+      container={container ?? dialogPortalContainer ?? undefined}
+    >
       <ComboboxPrimitive.Positioner
         side={side}
         sideOffset={sideOffset}
         align={align}
         alignOffset={alignOffset}
         anchor={anchor}
-        // Radix Dialog sets pointer-events:none on body; restore for portaled popup.
+        // Fallback when portaled to body under Radix Dialog pointer-events lock.
         className="pointer-events-auto isolate z-50"
       >
         <ComboboxPrimitive.Popup

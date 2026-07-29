@@ -4,6 +4,14 @@ import * as React from 'react';
 import { cn } from '../lib/utils';
 import { Button } from './button';
 
+/** Mount point for Base UI popups so they stay inside Radix scroll/pointer lock. */
+const DialogPortalContainerContext =
+  React.createContext<React.RefObject<HTMLElement | null> | null>(null);
+
+function useDialogPortalContainer() {
+  return React.useContext(DialogPortalContainerContext);
+}
+
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -68,57 +76,67 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
+  const portalContainerRef = React.useRef<HTMLDivElement | null>(null);
+
   return (
     <DialogPortal>
       <DialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        onOpenAutoFocus={(event) => {
-          onOpenAutoFocus?.(event);
+      <DialogPortalContainerContext.Provider value={portalContainerRef}>
+        <DialogPrimitive.Content
+          data-slot="dialog-content"
+          onOpenAutoFocus={(event) => {
+            onOpenAutoFocus?.(event);
 
-          if (!event.defaultPrevented) {
-            event.preventDefault();
-            (event.currentTarget as HTMLElement | null)?.focus();
-          }
-        }}
-        onInteractOutside={(event) => {
-          if (isPortaledOverlayTarget(event.target)) {
-            event.preventDefault();
-          }
-          onInteractOutside?.(event);
-        }}
-        onPointerDownOutside={(event) => {
-          if (isPortaledOverlayTarget(event.target)) {
-            event.preventDefault();
-          }
-          onPointerDownOutside?.(event);
-        }}
-        onFocusOutside={(event) => {
-          if (isPortaledOverlayTarget(event.target)) {
-            event.preventDefault();
-          }
-          onFocusOutside?.(event);
-        }}
-        className={cn(
-          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
-          className,
-        )}
-        {...props}
-      >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close data-slot="dialog-close" asChild>
-            <Button
-              variant="ghost"
-              className="absolute top-2 right-2"
-              size="icon-sm"
-            >
-              <XIcon />
-              <span className="sr-only">Close</span>
-            </Button>
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Content>
+            if (!event.defaultPrevented) {
+              event.preventDefault();
+              (event.currentTarget as HTMLElement | null)?.focus();
+            }
+          }}
+          onInteractOutside={(event) => {
+            if (isPortaledOverlayTarget(event.target)) {
+              event.preventDefault();
+            }
+            onInteractOutside?.(event);
+          }}
+          onPointerDownOutside={(event) => {
+            if (isPortaledOverlayTarget(event.target)) {
+              event.preventDefault();
+            }
+            onPointerDownOutside?.(event);
+          }}
+          onFocusOutside={(event) => {
+            if (isPortaledOverlayTarget(event.target)) {
+              event.preventDefault();
+            }
+            onFocusOutside?.(event);
+          }}
+          className={cn(
+            'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+            className,
+          )}
+          {...props}
+        >
+          {children}
+          {showCloseButton && (
+            <DialogPrimitive.Close data-slot="dialog-close" asChild>
+              <Button
+                variant="ghost"
+                className="absolute top-2 right-2"
+                size="icon-sm"
+              >
+                <XIcon />
+                <span className="sr-only">Close</span>
+              </Button>
+            </DialogPrimitive.Close>
+          )}
+          <div
+            ref={portalContainerRef}
+            data-slot="dialog-popup-portal"
+            className="absolute top-0 left-0 z-[100] h-0 w-0"
+            aria-hidden
+          />
+        </DialogPrimitive.Content>
+      </DialogPortalContainerContext.Provider>
     </DialogPortal>
   );
 }
@@ -200,4 +218,5 @@ export {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
+  useDialogPortalContainer,
 };
