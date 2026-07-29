@@ -39,9 +39,12 @@ export class ReportHtmlService {
    *
    * @throws {Error} When the preview report has no data for the block type.
    */
-  renderBlock(templateBlock: TemplateBlock, report: ReportData): string {
+  renderBlock(
+    templateBlock: Pick<TemplateBlock, 'type' | 'template'>,
+    report: ReportData,
+  ): string {
     const reportBlock = report.blocks.find(
-      (block) => block.type === templateBlock.type,
+      (block) => block.type === block.type,
     );
 
     if (!reportBlock) {
@@ -52,7 +55,7 @@ export class ReportHtmlService {
   }
 
   private renderBlockContent(
-    templateBlock: TemplateBlock,
+    templateBlock: Pick<TemplateBlock, 'type' | 'template'>,
     value: ReportBlock['value'],
   ): string {
     const renderBlock = Handlebars.compile(templateBlock.template);

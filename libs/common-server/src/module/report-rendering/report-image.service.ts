@@ -29,7 +29,7 @@ export class ReportImageService {
    * Renders a block at the printable A4 viewport and returns its PNG bytes.
    */
   renderBlock(
-    templateBlock: TemplateBlock,
+    templateBlock: Pick<TemplateBlock, 'type' | 'template'>,
     report: ReportData,
   ): Promise<Buffer> {
     return this.capture(
@@ -47,7 +47,6 @@ export class ReportImageService {
       await page.setViewport({
         width: 794,
         height: 1123,
-        deviceScaleFactor: 0.75,
       });
       await page.setJavaScriptEnabled(false);
       await page.setRequestInterception(true);

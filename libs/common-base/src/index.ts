@@ -49,6 +49,8 @@ export * from './data/docs/docs.data';
 export * from './data/auth/auth.data';
 export * from './data/status/status.data';
 
+export * from './fixture/report.fixture';
+
 export * from './utils/abilities.utils';
 export * from './utils/global.utils';
 export * from './utils/auth.utils';

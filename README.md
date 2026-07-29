@@ -180,7 +180,7 @@ The editor's Speed toggle sends AI requests with the Responses API
 `default` tier. Priority processing has lower latency and premium API pricing.
 
 AI-assisted editing sends the current template HTML, the selected block type,
-the user's editing prompt, and synthetic `REPORT_DATA_EXAMPLE` fixture data to
+the user's editing prompt, and synthetic `reportFixture.default` fixture data to
 OpenAI. It does not send a persisted patient report. The feature chains
 Responses API calls while the template modal remains open; closing the modal
 clears that context from client state. Do not place patient-identifying or other
@@ -395,7 +395,7 @@ Report output follows one shared rendering path:
 1. `ReportHtmlService` matches enabled template blocks to report data by block
    type, compiles their Handlebars markup, and wraps the result in a
    self-contained printable document.
-2. Template preview uses `REPORT_DATA_EXAMPLE`, so it can validate unsaved
+2. Template preview uses `reportFixture.default`, so it can validate unsaved
    markup without reading a persisted patient report.
 3. `TemplateAiEditorService` sends only the active block, the surrounding
    template, the user prompt, and synthetic example data through

@@ -5,6 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import {
+  reportFixture,
   TemplateAggregateRequest,
   TemplateAiEditEvent,
   TemplateAiEditRequest,
@@ -21,7 +22,7 @@ import {
   resolveEventStreamErrorMessage,
   SessionService,
 } from 'platform/common-server';
-import { includeTemplate, Prisma, REPORT_DATA_EXAMPLE } from 'platform/prisma';
+import { includeTemplate, Prisma } from 'platform/prisma';
 import { TemplateAiEditorService } from './template-ai-editor.service';
 
 /**
@@ -119,10 +120,10 @@ export class TemplateService {
           throw new Error(`Template block is missing: ${blockType}.`);
         }
 
-        return this.reportHtmlService.renderBlock(block, REPORT_DATA_EXAMPLE);
+        return this.reportHtmlService.renderBlock(block, reportFixture.default);
       }
 
-      return this.reportHtmlService.render(data, REPORT_DATA_EXAMPLE);
+      return this.reportHtmlService.render(data, reportFixture.default);
     } catch {
       throw new BadRequestException(
         'Template markup could not be rendered with preview data.',
@@ -137,12 +138,6 @@ export class TemplateService {
     data: TemplateAiEditRequest,
   ): AsyncGenerator<TemplateAiEditEvent> {
     this.session.abilityGuard('templates', 'aiEdit');
-
-    if (!this.openAi.isModelAllowed(data.model)) {
-      throw new BadRequestException(
-        'The selected AI model is not available for template editing.',
-      );
-    }
 
     yield* this.streamAiEditEvents(data);
   }

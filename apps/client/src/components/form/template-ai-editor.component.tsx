@@ -11,10 +11,7 @@ import {
   type TemplateAiReasoningEffort,
   TemplateAiReasoningEffortSchema,
 } from 'platform/common-base';
-import {
-  AI_REASONING_EFFORT_OPTIONS,
-  REQUEST_SUCCESS_VISIBILITY_MS,
-} from '../../constants';
+import { AI_REASONING_EFFORT_OPTIONS } from '../../constants';
 import { clientEnvironment } from '../../env/client.env';
 import { type RequestStatus } from '../../hooks/request.hook';
 import { getErrorMessage } from '../../utils/request.utils';
@@ -75,7 +72,6 @@ export const TemplateAiEditor = ({
   const models = clientEnvironment.openAiModelAllowlist;
   const [prompt, setPrompt] = useState('');
   const [modelId, setModelId] = useState(models[0]!);
-  const [showNotification, setShowNotification] = useState(false);
   const [reasoningEffort, setReasoningEffort] =
     useState<TemplateAiReasoningEffort>('low');
   const [speed, setSpeed] = useState(false);
@@ -89,26 +85,6 @@ export const TemplateAiEditor = ({
     setModelId((current) => (models.includes(current) ? current : models[0]!));
   }, [models]);
 
-  useEffect(() => {
-    if (!active || editorStatus === 'initial') {
-      setShowNotification(false);
-      return;
-    }
-
-    setShowNotification(true);
-
-    if (editorStatus !== 'success') {
-      return;
-    }
-
-    const timeout = window.setTimeout(
-      () => setShowNotification(false),
-      REQUEST_SUCCESS_VISIBILITY_MS,
-    );
-
-    return () => window.clearTimeout(timeout);
-  }, [active, editorStatus]);
-
   return (
     <div className="grid gap-2">
       <Textarea
@@ -119,17 +95,7 @@ export const TemplateAiEditor = ({
         onChange={(event) => setPrompt(event.target.value)}
       />
       <div className="flex min-w-0 flex-col items-stretch gap-2 md:flex-row md:justify-between md:gap-3">
-        {showNotification ? (
-          <RequestStatusNotification
-            status={editorStatus}
-            loadingMessage={loadingMessage}
-            successMessage={successMessage}
-            errorMessage={
-              active && error !== undefined ? getErrorMessage(error) : undefined
-            }
-            className="min-w-0 max-w-full md:flex-none"
-          />
-        ) : (
+        <div className="flex min-w-0 flex-col items-stretch gap-2 md:flex-row">
           <Select value={modelId} disabled={busy} onValueChange={setModelId}>
             <SelectTrigger
               aria-label="AI model"
@@ -146,7 +112,16 @@ export const TemplateAiEditor = ({
               ))}
             </SelectContent>
           </Select>
-        )}
+          <RequestStatusNotification
+            status={editorStatus}
+            loadingMessage={loadingMessage}
+            successMessage={successMessage}
+            errorMessage={
+              active && error !== undefined ? getErrorMessage(error) : undefined
+            }
+            className="min-w-0 max-w-full md:flex-none"
+          />
+        </div>
         <div className="flex min-w-0 flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -253,15 +228,18 @@ export const TemplateAiEditor = ({
             className="shrink-0"
             disabled={!prompt.trim() || !modelId || busy}
             onClick={() => {
-              void onSubmit(
-                prompt,
-                modelId,
-                reasoningEffort,
-                visualValidation,
-                speed,
-              )
-                .then(() => setPrompt(''))
-                .catch(() => undefined);
+              try {
+                void onSubmit(
+                  prompt,
+                  modelId,
+                  reasoningEffort,
+                  visualValidation,
+                  speed,
+                );
+                setPrompt('');
+              } catch {
+                // ignore
+              }
             }}
           >
             <SendIcon />

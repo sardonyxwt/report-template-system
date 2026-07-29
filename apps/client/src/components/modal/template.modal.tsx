@@ -19,6 +19,7 @@ import {
   ChevronDownIcon,
   EyeIcon,
   GripVerticalIcon,
+  LoaderCircleIcon,
   PencilIcon,
   RefreshCwIcon,
   SparklesIcon,
@@ -61,6 +62,7 @@ import { getErrorMessage } from '../../utils/request.utils';
 import { EntityAutocomplete } from '../form/entity-autocomplete.component';
 import { TemplateAiEditor } from '../form/template-ai-editor.component';
 import { cn } from '../shadcn/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from '../shadcn/ui/alert';
 import { Button } from '../shadcn/ui/button';
 import { Checkbox } from '../shadcn/ui/checkbox';
 import {
@@ -106,6 +108,7 @@ export const TemplateModal = ({
     'Sending your request…',
   );
   const aiSessionRef = useRef(0);
+  const aiRequestInFlightRef = useRef(false);
   const user = useAuthenticatedUser();
   const form = useForm<TemplateForm>({
     resolver: zodResolver(
@@ -220,42 +223,51 @@ export const TemplateModal = ({
     speed: boolean,
     blockType?: TemplateBlock['type'],
   ) => {
+    if (aiRequestInFlightRef.current) {
+      return;
+    }
+
+    aiRequestInFlightRef.current = true;
     const session = aiSessionRef.current;
     const scope: AiEditorScope = blockType ?? 'template';
     const context = aiContexts[scope];
     setActiveAiScope(scope);
     setAiProgressMessage('Sending your request…');
 
-    const response = await aiEditRequest.fetch(
-      {
-        data: form.getValues('data'),
-        prompt,
-        model,
-        reasoningEffort,
-        speed,
-        visualValidation,
-        ...(blockType ? { blockType } : {}),
-        ...(context?.model === model ? { contextId: context.id } : {}),
-      },
-      session,
-    );
+    try {
+      const response = await aiEditRequest.fetch(
+        {
+          data: form.getValues('data'),
+          prompt,
+          model,
+          reasoningEffort,
+          speed,
+          visualValidation,
+          ...(blockType ? { blockType } : {}),
+          ...(context?.model === model ? { contextId: context.id } : {}),
+        },
+        session,
+      );
 
-    if (session !== aiSessionRef.current) {
-      return;
+      if (session !== aiSessionRef.current) {
+        return;
+      }
+
+      blocks.replace(response.data.blocks);
+      form.setValue('data.blocks', response.data.blocks, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      setAiContexts((current) => ({
+        ...current,
+        [scope]: {
+          id: response.contextId,
+          model,
+        },
+      }));
+    } finally {
+      aiRequestInFlightRef.current = false;
     }
-
-    blocks.replace(response.data.blocks);
-    form.setValue('data.blocks', response.data.blocks, {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-    setAiContexts((current) => ({
-      ...current,
-      [scope]: {
-        id: response.contextId,
-        model,
-      },
-    }));
   };
 
   return (
@@ -397,7 +409,7 @@ export const TemplateModal = ({
                     <div className="grid min-w-0 gap-2">
                       {blocks.fields.map((block, index) => (
                         <SortableTemplateBlock
-                          key={block.id}
+                          key={block.type}
                           block={block}
                           form={form}
                           index={index}
@@ -599,8 +611,9 @@ const SortableTemplateBlock = ({
       <div className="flex min-h-12 items-center gap-2 px-3">
         <button
           type="button"
+          disabled={aiLoading}
           aria-label={`Reorder ${formatBlockType(block.type)} block`}
-          className="touch-none cursor-grab rounded-md p-1 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+          className="touch-none cursor-grab rounded-md p-1 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
           {...attributes}
           {...listeners}
         >
@@ -629,6 +642,7 @@ const SortableTemplateBlock = ({
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <Checkbox
                 checked={field.value}
+                disabled={aiLoading}
                 onCheckedChange={field.onChange}
               />
               <span className="w-16 text-muted-foreground">
@@ -672,17 +686,35 @@ const SortableTemplateBlock = ({
             </TabsList>
 
             <TabsContent value="manual">
-              <Textarea
-                rows={6}
-                aria-label={`${formatBlockType(block.type)} template content`}
-                aria-invalid={Boolean(
-                  form.formState.errors.data?.blocks?.[index]?.template,
-                )}
-                placeholder="<section>{{content}}</section>"
-                {...form.register(`data.blocks.${index}.template`)}
-              />
-              {templateError && (
-                <p className="mt-2 text-sm text-destructive">{templateError}</p>
+              {aiLoading ? (
+                <Alert className="border-sky-500/40 bg-sky-50/95 dark:bg-sky-950/90">
+                  <LoaderCircleIcon className="animate-spin text-sky-600 dark:text-sky-400" />
+                  <AlertTitle>AI update in progress</AlertTitle>
+                  <AlertDescription>
+                    <span>{aiProgressMessage}</span>
+                    <span>
+                      Manual editing is paused until AI finishes updating the
+                      template.
+                    </span>
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <>
+                  <Textarea
+                    rows={6}
+                    aria-label={`${formatBlockType(block.type)} template content`}
+                    aria-invalid={Boolean(
+                      form.formState.errors.data?.blocks?.[index]?.template,
+                    )}
+                    placeholder="<section>{{content}}</section>"
+                    {...form.register(`data.blocks.${index}.template`)}
+                  />
+                  {templateError && (
+                    <p className="mt-2 text-sm text-destructive">
+                      {templateError}
+                    </p>
+                  )}
+                </>
               )}
             </TabsContent>
 

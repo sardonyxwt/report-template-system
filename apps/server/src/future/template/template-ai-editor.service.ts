@@ -11,9 +11,9 @@ import { z } from 'zod';
 import {
   TemplateAiEditEvent,
   TemplateAiEditRequest,
+  reportFixture,
 } from 'platform/common-base';
 import {
-  createSafetyIdentifier,
   OpenAiService,
   ReportHtmlService,
   ReportImageService,
@@ -22,19 +22,30 @@ import {
   OpenAiTool,
 } from 'platform/common-server';
 import {
-  REPORT_DATA_EXAMPLE,
-  ReportDataSchema,
   TemplateBlockTypeSchema,
   TemplateDataSchema,
   TemplateMarkupSchema,
   type TemplateData,
-  TemplateBlockType,
-  TemplateMarkup,
-  TemplateBlock,
+  ReportDataSchema,
 } from 'platform/prisma';
 
+const TemplateAiInputSchema = z.object({
+  request: z.string().trim().min(1).max(10_000),
+  scope: z.discriminatedUnion('scope', [
+    z.object({
+      scope: z.literal('block'),
+      type: TemplateBlockTypeSchema,
+    }),
+    z.object({
+      scope: z.literal('template'),
+    }),
+  ]),
+  example: ReportDataSchema,
+  currentTemplate: TemplateDataSchema,
+});
+
 const BlockToolArgumentsSchema = z.object({
-  blockType: TemplateBlockTypeSchema.describe(
+  type: TemplateBlockTypeSchema.describe(
     'Type of the block to validate or inspect.',
   ),
   template: TemplateMarkupSchema.describe(
@@ -42,39 +53,13 @@ const BlockToolArgumentsSchema = z.object({
   ),
 });
 
-const CompleteTemplateDataSchema = TemplateDataSchema.safeExtend({
+const TemplateToolArgumentsSchema = z.object({
   blocks: TemplateDataSchema.shape.blocks
     .length(TemplateBlockTypeSchema.options.length)
     .describe(
       'Complete template block array in the proposed display order. Include every block exactly once.',
     ),
 });
-
-const TemplateToolArgumentsSchema = CompleteTemplateDataSchema;
-const AiResultSchema = CompleteTemplateDataSchema;
-const TemplateAiInputSchema = z.object({
-  request: z.string().trim().min(1).max(10_000),
-  scope: z.discriminatedUnion('type', [
-    z.object({
-      type: z.literal('block'),
-      blockType: TemplateBlockTypeSchema,
-    }),
-    z.object({
-      type: z.literal('template'),
-    }),
-  ]),
-  exampleData: ReportDataSchema.shape.blocks,
-  currentTemplate: TemplateDataSchema,
-});
-
-type PreviewBlockData = {
-  blockType: TemplateBlockType;
-  template: TemplateMarkup;
-};
-
-type TemplateAiToolContext = {
-  request: TemplateAiEditRequest;
-};
 
 type TemplateAiProgressEvent = Extract<
   TemplateAiEditEvent,
@@ -105,7 +90,7 @@ type ProgressEvent =
  */
 @Injectable()
 export class TemplateAiEditorService {
-  private readonly aiTools: OpenAiTool<TemplateAiToolContext>[];
+  private readonly tools: OpenAiTool<unknown>[];
 
   constructor(
     @Inject(Logger)
@@ -119,19 +104,28 @@ export class TemplateAiEditorService {
     @Inject(ReportImageService)
     reportImageService: ReportImageService,
   ) {
-    this.aiTools = [
+    this.tools = [
       this.openAi.defineOpenAiTool({
         name: 'render_block_preview',
         description:
           'Compile one proposed Handlebars block with its test data and return the exact HTML document used for PDF rendering.',
         parameters: BlockToolArgumentsSchema,
-        execute(argumentsValue, context: TemplateAiToolContext) {
+        execute(argumentsValue) {
           return reportHtmlService.renderBlock(
-            TemplateAiEditorService.createPreviewBlock(
-              argumentsValue,
-              context.request,
-            ),
-            REPORT_DATA_EXAMPLE,
+            argumentsValue,
+            reportFixture.default,
+          );
+        },
+      }),
+      this.openAi.defineOpenAiTool({
+        name: 'render_template_preview',
+        description:
+          'Validate and render the complete proposed template, including enabled states and block order, with authoritative test data.',
+        parameters: TemplateToolArgumentsSchema,
+        execute(argumentsValue) {
+          return reportHtmlService.render(
+            argumentsValue,
+            reportFixture.default,
           );
         },
       }),
@@ -140,13 +134,10 @@ export class TemplateAiEditorService {
         description:
           'Optionally render one proposed block at its real A4 PDF content width and return a PNG image. Use only when a complex visual layout cannot be assessed confidently from the markup and rendered HTML.',
         parameters: BlockToolArgumentsSchema,
-        async execute(argumentsValue, context: TemplateAiToolContext) {
+        async execute(argumentsValue) {
           const image = await reportImageService.renderBlock(
-            TemplateAiEditorService.createPreviewBlock(
-              argumentsValue,
-              context.request,
-            ),
-            REPORT_DATA_EXAMPLE,
+            argumentsValue,
+            reportFixture.default,
           );
 
           return [
@@ -159,33 +150,14 @@ export class TemplateAiEditorService {
         },
       }),
       this.openAi.defineOpenAiTool({
-        name: 'render_template_preview',
-        description:
-          'Validate and render the complete proposed template, including enabled states and block order, with authoritative test data.',
-        parameters: TemplateToolArgumentsSchema,
-        execute(argumentsValue, context: TemplateAiToolContext) {
-          TemplateAiEditorService.assertTemplateScope(
-            context.request,
-            argumentsValue,
-          );
-
-          return reportHtmlService.render(argumentsValue, REPORT_DATA_EXAMPLE);
-        },
-      }),
-      this.openAi.defineOpenAiTool({
         name: 'capture_template_preview',
         description:
           'Optionally render the complete proposed ordered template as a PNG. Use only when cross-block layout or pagination cannot be assessed confidently from the markup and rendered HTML.',
         parameters: TemplateToolArgumentsSchema,
-        async execute(argumentsValue, context: TemplateAiToolContext) {
-          TemplateAiEditorService.assertTemplateScope(
-            context.request,
-            argumentsValue,
-          );
-
+        async execute(argumentsValue) {
           const image = await reportImageService.render(
             argumentsValue,
-            REPORT_DATA_EXAMPLE,
+            reportFixture.default,
           );
 
           return [
@@ -230,13 +202,13 @@ export class TemplateAiEditorService {
   ): AsyncGenerator<TemplateAiEditEvent> {
     yield this.createEvent({ type: 'initial' });
 
-    const input = this.openAi.parseInput(
+    const input = this.openAi.parsOpenAiInput(
       {
         request: request.prompt,
         scope: request.blockType
-          ? { type: 'block', blockType: request.blockType }
-          : { type: 'template' },
-        exampleData: REPORT_DATA_EXAMPLE.blocks,
+          ? { scope: 'block', type: request.blockType }
+          : { scope: 'template' },
+        example: reportFixture.default,
         currentTemplate: request.data,
       },
       TemplateAiInputSchema,
@@ -247,34 +219,22 @@ export class TemplateAiEditorService {
         },
       ],
     );
-    const aiTools = request.visualValidation
-      ? this.aiTools
-      : this.aiTools.filter(({ name }) => !name.startsWith('capture_'));
 
-    const events = this.openAi.run<z.infer<typeof AiResultSchema>>({
+    const events = this.openAi.run<z.infer<typeof TemplateDataSchema>>({
       model: request.model,
-      instructions: this.createInstructions(
+      instructions: this.createReportInstructions(
         request.blockType,
         request.visualValidation,
       ),
       input,
       previousResponseId: request.contextId,
-      tools: this.openAi.getOpenAiToolDefinitions(aiTools),
-      tool_choice: 'auto',
-      parallel_tool_calls: true,
-      store: true,
-      service_tier: request.speed ? 'priority' : 'default',
-      reasoning: {
-        effort: request.reasoningEffort,
-      },
-      safety_identifier: createSafetyIdentifier(this.session.authorizedUser.id),
-      text: {
-        format: zodTextFormat(AiResultSchema, 'template_ai_edit_result'),
-      },
-      handleToolCall: (toolCall, argumentsValue) =>
-        this.openAi.executeOpenAiTool(aiTools, toolCall.name, argumentsValue, {
-          request,
-        }),
+      tools: request.visualValidation
+        ? this.tools
+        : this.tools.filter(({ name }) => !name.startsWith('capture')),
+
+      speed: request.speed ? 'priority' : 'default',
+      reasoningEffort: request.reasoningEffort,
+      format: zodTextFormat(TemplateDataSchema, 'template_ai_edit_result'),
     });
 
     for await (const event of events) {
@@ -294,7 +254,7 @@ export class TemplateAiEditorService {
       yield this.createEvent({ type: 'complete' });
 
       try {
-        this.reportHtmlService.render(data, REPORT_DATA_EXAMPLE);
+        this.reportHtmlService.render(data, reportFixture.default);
       } catch {
         throw new BadRequestException(
           'AI returned a template that could not be rendered.',
@@ -367,9 +327,21 @@ export class TemplateAiEditorService {
 
   private validateResult(
     request: TemplateAiEditRequest,
-    result: z.infer<typeof AiResultSchema>,
+    result: z.infer<typeof TemplateDataSchema>,
   ): TemplateData {
-    const parsed = TemplateDataSchema.safeParse(result);
+    const parsed = TemplateDataSchema.safeParse(
+      request.blockType
+        ? {
+            blocks: result.blocks.map((changedBlock) =>
+              changedBlock.type === request.blockType
+                ? changedBlock
+                : request.data.blocks.find(
+                    (currentBlock) => currentBlock.type === changedBlock.type,
+                  ),
+            ),
+          }
+        : result,
+    );
 
     if (!parsed.success) {
       throw new BadRequestException(
@@ -377,12 +349,10 @@ export class TemplateAiEditorService {
       );
     }
 
-    TemplateAiEditorService.assertTemplateScope(request, parsed.data);
-
     return parsed.data;
   }
 
-  private createInstructions(
+  private createReportInstructions(
     blockType?: string,
     visualValidation = false,
   ): string {
@@ -432,69 +402,16 @@ export class TemplateAiEditorService {
       - The currentTemplate in the latest user message is always the source of truth.
       
       Tools:
+      - Parallelize tool execution
       - render_block_preview and render_template_preview are the default tools for validating proposed markup and complete templates.
-      - Choose the relevant render tools and block types based on the request.
-      - Validate every changed block before finishing.
+      - Choose the relevant render tools and block types based on the request..
       - For changes involving order or interactions between blocks, validate the complete template.
       ${visualValidationInstructions}
-      - Stop when the requested change is complete and the full template renders correctly.
+      - Stop when the requested change is complete and the template render correctly.
       
       Final output:
       - Return only the structured result requested by the response schema.
       - The blocks array order is the final report order.
     `;
-  }
-
-  private static createPreviewBlock(
-    data: PreviewBlockData,
-    request: TemplateAiEditRequest,
-  ): TemplateBlock {
-    const originalBlock = request.data.blocks.find(
-      ({ type }) => type === data.blockType,
-    );
-
-    if (!originalBlock) {
-      throw new BadRequestException(
-        'The requested block does not exist in the template.',
-      );
-    }
-
-    return {
-      ...originalBlock,
-      template: data.template,
-    } as TemplateBlock;
-  }
-
-  private static assertTemplateScope(
-    request: TemplateAiEditRequest,
-    result: TemplateData,
-  ): void {
-    if (!request.blockType) {
-      return;
-    }
-
-    const originalBlocks = new Map(
-      request.data.blocks.map((block) => [block.type, block]),
-    );
-
-    const changedOutsideScope = result.blocks.some((block) => {
-      if (block.type === request.blockType) {
-        return false;
-      }
-
-      const original = originalBlocks.get(block.type);
-
-      return (
-        !original ||
-        original.enabled !== block.enabled ||
-        original.template !== block.template
-      );
-    });
-
-    if (changedOutsideScope) {
-      throw new BadRequestException(
-        `AI attempted to edit a block outside the active ${request.blockType} block.`,
-      );
-    }
   }
 }

@@ -1,18 +1,21 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common/exceptions/bad-request.exception';
 import OpenAI from 'openai';
 import { zodResponsesFunction } from 'openai/helpers/zod';
 import type {
   ParsedResponse,
   ParsedResponseFunctionToolCall,
-  ResponseCreateParamsNonStreaming,
+  ResponseCreateParams,
+  ResponseFormatTextConfig,
   ResponseInput,
   ResponseInputItem,
   Tool,
 } from 'openai/resources/responses/responses';
 import { z } from 'zod';
+import { DEFAULT_TOOL_ITERATION_LIMIT } from '../../constants';
+import { createSafetyIdentifier } from '../../utils/crypto.utils';
+import { SessionService } from '../auth/service/session.service';
 import { OPEN_AI_MODULE_OPTIONS, OpenAiModuleOptions } from './open-ai.options';
-
-const DEFAULT_TOOL_ITERATION_LIMIT = 10;
 
 export type OpenAiToolOutput = ResponseInputItem.FunctionCallOutput['output'];
 
@@ -23,36 +26,31 @@ export type OpenAiToolOutput = ResponseInputItem.FunctionCallOutput['output'];
  * request. It can contain authenticated state, injected Nest services, or any
  * other application-only dependency needed by a tool implementation.
  */
-export type OpenAiTool<Context> = {
+export type OpenAiTool<Args> = {
   name: string;
   definition: Tool;
-  execute(
-    argumentsValue: unknown,
-    context: Context,
-  ): OpenAiToolOutput | Promise<OpenAiToolOutput>;
+  execute(argumentsValue: Args): OpenAiToolOutput | Promise<OpenAiToolOutput>;
 };
 
-export type OpenAiToolOptions<Parameters extends z.ZodType, Context> = {
+export type OpenAiToolOptions<Parameters extends z.ZodType> = {
   name: string;
   description: string;
   parameters: Parameters;
   execute(
     argumentsValue: z.infer<Parameters>,
-    context: Context,
   ): OpenAiToolOutput | Promise<OpenAiToolOutput>;
 };
 
-export type OpenAiRunOptions = Omit<
-  ResponseCreateParamsNonStreaming,
-  'input' | 'previous_response_id' | 'stream'
-> & {
-  input: string | ResponseInput;
+export type OpenAiRunOptions = {
+  model: string;
+  instructions: string;
+  speed: 'priority' | 'default';
+  reasoningEffort: 'low' | 'medium' | 'high';
+  input: ResponseInput;
+  format: ResponseFormatTextConfig;
+  tools: OpenAiTool<unknown>[];
   previousResponseId?: string;
   toolIterationLimit?: number;
-  handleToolCall: (
-    toolCall: ParsedResponseFunctionToolCall,
-    argumentsValue: unknown,
-  ) => OpenAiToolOutput | Promise<OpenAiToolOutput>;
 };
 
 export type OpenAiRunEvent<ParsedResult> =
@@ -83,6 +81,8 @@ export class OpenAiService {
   constructor(
     @Inject(Logger)
     private readonly logger: Logger,
+    @Inject(SessionService)
+    private readonly session: SessionService,
     @Inject(OPEN_AI_MODULE_OPTIONS)
     readonly options: OpenAiModuleOptions,
   ) {
@@ -92,10 +92,6 @@ export class OpenAiService {
     });
   }
 
-  isModelAllowed(modelId: string): boolean {
-    return this.options.modelAllowlist.includes(modelId);
-  }
-
   /**
    * Validates unknown input and transforms the parsed value into the shape
    * required by an OpenAI request.
@@ -103,7 +99,7 @@ export class OpenAiService {
    * The transformer receives the schema output, so Zod coercions and
    * transformations are reflected in its input type.
    */
-  parseInput<Schema extends z.ZodType, Result>(
+  public parsOpenAiInput<Schema extends z.ZodType, Result>(
     input: unknown,
     schema: Schema,
     transformer: (input: z.output<Schema>) => Result,
@@ -117,9 +113,9 @@ export class OpenAiService {
    * The OpenAI helper converts the schema to strict JSON Schema for the model
    * and makes `responses.parse()` validate arguments before tool dispatch.
    */
-  defineOpenAiTool<Parameters extends z.ZodType, Context>(
-    options: OpenAiToolOptions<Parameters, Context>,
-  ): OpenAiTool<Context> {
+  public defineOpenAiTool<Parameters extends z.ZodType>(
+    options: OpenAiToolOptions<Parameters>,
+  ): OpenAiTool<Parameters> {
     return {
       name: options.name,
       definition: zodResponsesFunction({
@@ -127,12 +123,9 @@ export class OpenAiService {
         description: options.description,
         parameters: options.parameters,
       }),
-      async execute(argumentsValue, context) {
+      async execute(argumentsValue) {
         try {
-          return await options.execute(
-            argumentsValue as z.infer<Parameters>,
-            context,
-          );
+          return await options.execute(argumentsValue as z.infer<Parameters>);
         } catch (error) {
           return JSON.stringify({
             ok: false,
@@ -147,48 +140,31 @@ export class OpenAiService {
   }
 
   /**
-   * Returns the wire definitions passed to `responses.parse()`.
-   */
-  getOpenAiToolDefinitions<Context>(
-    tools: readonly OpenAiTool<Context>[],
-  ): Tool[] {
-    return tools.map(({ definition }) => definition);
-  }
-
-  /**
-   * Dispatches an already parsed Responses function call to its typed handler.
-   */
-  executeOpenAiTool<Context>(
-    tools: readonly OpenAiTool<Context>[],
-    name: string,
-    argumentsValue: unknown,
-    context: Context,
-  ): OpenAiToolOutput | Promise<OpenAiToolOutput> {
-    const tool = tools.find((candidate) => candidate.name === name);
-
-    if (!tool) {
-      throw new Error(`Unknown OpenAI tool: ${name}`);
-    }
-
-    return tool.execute(argumentsValue, context);
-  }
-
-  /**
    * Runs a Responses API request until the model returns a final response.
    *
    * Function calls are delegated to the feature handler and their outputs are
    * automatically sent back to the model using the response conversation.
    */
-  async *run<ParsedResult>(
+  public async *run<ParsedResult>(
     options: OpenAiRunOptions,
   ): AsyncGenerator<OpenAiRunEvent<ParsedResult>> {
     const {
+      model,
+      speed,
+      format,
+      reasoningEffort,
       input: initialInput,
       previousResponseId: initialPreviousResponseId,
       toolIterationLimit = DEFAULT_TOOL_ITERATION_LIMIT,
-      handleToolCall,
+      tools,
       ...responseOptions
     } = options;
+
+    if (!this.isModelAllowed(model)) {
+      throw new BadRequestException(
+        'The selected AI model is not available for template editing.',
+      );
+    }
 
     let input = initialInput;
     let previousResponseId = initialPreviousResponseId;
@@ -200,15 +176,29 @@ export class OpenAiService {
       };
 
       const response = await this.client.responses.parse<
-        ResponseCreateParamsNonStreaming,
+        ResponseCreateParams,
         ParsedResult
       >({
-        ...responseOptions,
+        model,
+        text: { format },
+        tool_choice: 'auto',
+        store: true,
+        service_tier: speed,
+        safety_identifier: createSafetyIdentifier(
+          this.session.authorizedUser.id,
+        ),
+        reasoning: {
+          effort: reasoningEffort,
+        },
+        parallel_tool_calls: true,
+        tools: this.getOpenAiToolDefinitions(tools),
         input,
+        ...responseOptions,
         ...(previousResponseId
           ? { previous_response_id: previousResponseId }
           : {}),
       });
+
       const toolCalls = response.output.filter(
         (item): item is ParsedResponseFunctionToolCall =>
           item.type === 'function_call',
@@ -231,8 +221,7 @@ export class OpenAiService {
           toolCall,
         };
 
-        const startedAt = Date.now();
-        const logContext = {
+        const context = {
           toolName: toolCall.name,
           toolCallId: toolCall.call_id,
           iteration,
@@ -241,22 +230,26 @@ export class OpenAiService {
         this.logger.log(
           'OpenAI tool call started',
           OpenAiService.name,
-          logContext,
+          context,
         );
 
         let output: OpenAiToolOutput;
 
         try {
-          output = await handleToolCall(toolCall, toolCall.parsed_arguments);
+          output = await this.executeOpenAiTool(
+            tools,
+            toolCall.name,
+            toolCall.parsed_arguments,
+          );
 
-          this.logger.log('OpenAI tool call completed', OpenAiService.name, {
-            ...logContext,
-            durationMs: Date.now() - startedAt,
-          });
+          this.logger.log(
+            'OpenAI tool call completed',
+            OpenAiService.name,
+            context,
+          );
         } catch (error) {
           this.logger.error('OpenAI tool call failed', OpenAiService.name, {
-            ...logContext,
-            durationMs: Date.now() - startedAt,
+            ...context,
             error,
           });
 
@@ -277,5 +270,35 @@ export class OpenAiService {
     throw new Error(
       `OpenAI exceeded the tool iteration limit of ${toolIterationLimit}.`,
     );
+  }
+
+  /**
+   * Dispatches an already parsed Responses function call to its typed handler.
+   */
+  private executeOpenAiTool<Args>(
+    tools: readonly OpenAiTool<Args>[],
+    name: string,
+    argumentsValue: Args,
+  ): OpenAiToolOutput | Promise<OpenAiToolOutput> {
+    const tool = tools.find((candidate) => candidate.name === name);
+
+    if (!tool) {
+      throw new Error(`Unknown OpenAI tool: ${name}`);
+    }
+
+    return tool.execute(argumentsValue);
+  }
+
+  /**
+   * Returns the wire definitions passed to `responses.parse()`.
+   */
+  private getOpenAiToolDefinitions<Context>(
+    tools: readonly OpenAiTool<Context>[],
+  ): Tool[] {
+    return tools.map(({ definition }) => definition);
+  }
+
+  private isModelAllowed(modelId: string): boolean {
+    return this.options.modelAllowlist.includes(modelId);
   }
 }
