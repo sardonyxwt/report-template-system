@@ -44,7 +44,7 @@ export class ReportHtmlService {
     report: ReportData,
   ): string {
     const reportBlock = report.blocks.find(
-      (block) => block.type === block.type,
+      (block) => block.type === templateBlock.type,
     );
 
     if (!reportBlock) {

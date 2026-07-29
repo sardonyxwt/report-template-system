@@ -169,6 +169,31 @@ describe('api.template', () => {
       expect(blockResponse.status).toBe(HttpStatus.OK);
       expect(blockResponse.text).toContain('data-report-block="summary"');
       expect(blockResponse.text).not.toContain('data-report-block="cover"');
+
+      const storyResponse = await context
+        .apiCall({
+          ...endpoints.template.preview,
+          accessToken,
+        })
+        .send({
+          data: {
+            blocks: [
+              {
+                type: 'story',
+                enabled: true,
+                template:
+                  '<section>{{#each items}}<article>{{title}}</article>{{/each}}</section>',
+              },
+            ],
+          },
+          blockType: 'story',
+        });
+
+      expect(storyResponse.status).toBe(HttpStatus.OK);
+      expect(storyResponse.text).toContain('Kidney monitoring');
+      expect(storyResponse.text).toContain('Glycemic control');
+      expect(storyResponse.text).toContain('Blood pressure control');
+      expect(storyResponse.text).not.toContain("Doron’s Health Report");
     }
 
     const userResponse = await context
