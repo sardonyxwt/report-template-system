@@ -18,7 +18,7 @@ import {
 } from '../components/shadcn/ui/card';
 import { useAccessControl } from '../providers/access-control.provider';
 import { useAuth } from '../providers/auth.provider';
-import { getDefaultAppRoute } from '../routes';
+import { getDefaultAppRoute } from '../routes/config';
 
 export const HomePage = () => {
   const { status, isAuthenticated, user } = useAuth();

@@ -19,8 +19,6 @@ import {
 } from '../../utils/formatting.utils';
 import { getErrorMessage } from '../../utils/request.utils';
 import { EntityAutocomplete } from '../form/entity-autocomplete.component';
-import { FormFieldGroup } from '../form/form-field-group.component';
-import { SubmitLabel } from '../form/submit-label.component';
 import { Button } from '../shadcn/ui/button';
 import {
   Dialog,
@@ -31,6 +29,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../shadcn/ui/dialog';
+import { Field, FieldError, FieldLabel } from '../shadcn/ui/field';
+import { Spinner } from '../shadcn/ui/spinner';
 
 export const PatientReportModal = ({
   trigger,
@@ -110,11 +110,10 @@ export const PatientReportModal = ({
             (data) => void createRequest.fetch(data).catch(() => undefined),
           )}
         >
-          <FormFieldGroup
-            label="Clinic report"
-            htmlFor="patient-report-source"
-            error={form.formState.errors.reportId?.message}
-          >
+          <Field data-invalid={Boolean(form.formState.errors.reportId)}>
+            <FieldLabel htmlFor="patient-report-source">
+              Clinic report
+            </FieldLabel>
             <Controller
               control={form.control}
               name="reportId"
@@ -145,12 +144,10 @@ export const PatientReportModal = ({
                 />
               )}
             />
-          </FormFieldGroup>
-          <FormFieldGroup
-            label="Template"
-            htmlFor="patient-report-template"
-            error={form.formState.errors.templateId?.message}
-          >
+            <FieldError errors={[form.formState.errors.reportId]} />
+          </Field>
+          <Field data-invalid={Boolean(form.formState.errors.templateId)}>
+            <FieldLabel htmlFor="patient-report-template">Template</FieldLabel>
             <Controller
               control={form.control}
               name="templateId"
@@ -176,7 +173,8 @@ export const PatientReportModal = ({
                 />
               )}
             />
-          </FormFieldGroup>
+            <FieldError errors={[form.formState.errors.templateId]} />
+          </Field>
           <DialogFooter>
             <Button
               type="button"
@@ -186,9 +184,8 @@ export const PatientReportModal = ({
               Cancel
             </Button>
             <Button type="submit" disabled={createRequest.isLoading}>
-              <SubmitLabel loading={createRequest.isLoading}>
-                Create patient report
-              </SubmitLabel>
+              {createRequest.isLoading && <Spinner data-icon="inline-start" />}
+              Create patient report
             </Button>
           </DialogFooter>
         </form>

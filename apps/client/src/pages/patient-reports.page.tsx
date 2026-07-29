@@ -97,7 +97,6 @@ export const PatientReportsPage = () => {
   return (
     <ResourcePage
       title="Patient reports"
-      description="Open patient-ready reports available to your account."
       itemName="patient report"
       columns={columns}
       load={(pagination) =>

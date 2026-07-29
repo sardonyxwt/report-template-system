@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '../components/shadcn/ui/card';
-import { routes } from '../routes';
+import { routes } from '../routes/config';
 
 export const RouteErrorPage = () => (
   <main className="relative flex min-h-svh items-center justify-center overflow-hidden p-6">
@@ -46,7 +46,7 @@ export const RouteErrorPage = () => (
           Try again
         </Button>
         <Button asChild className="w-full">
-          <a href={routes.home()}>
+          <a href={routes.home}>
             <HouseIcon />
             Return home
           </a>

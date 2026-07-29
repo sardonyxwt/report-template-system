@@ -8,7 +8,6 @@ import {
 } from 'platform/common-base';
 import { searchQueryOrUndef, UserRole } from 'platform/prisma';
 import { api } from '../api/client.api';
-import { Can } from '../components/can.component';
 import { ClinicModal } from '../components/modal/clinic.modal';
 import {
   AsyncAutocompleteFilter,
@@ -73,7 +72,6 @@ export const ClinicsPage = () => {
   return (
     <ResourcePage
       title="Clinics"
-      description="Manage clinics and the managers responsible for them."
       itemName="clinic"
       columns={columns}
       load={(pagination) =>
@@ -122,13 +120,11 @@ export const ClinicsPage = () => {
             )
           : undefined
       }
-      rowAction={(clinic, reload) => (
-        <Can
-          granted={access.clinics.update({
-            clinic,
-            updates: clinic,
-          })}
-        >
+      rowAction={(clinic, reload) =>
+        access.clinics.update({
+          clinic,
+          updates: clinic,
+        }) ? (
           <ClinicModal
             clinic={clinic}
             onSaved={reload}
@@ -138,8 +134,8 @@ export const ClinicsPage = () => {
               </Button>
             }
           />
-        </Can>
-      )}
+        ) : null
+      }
       canDelete={(clinic) =>
         access.clinics.delete({ managerId: clinic.managerId })
       }

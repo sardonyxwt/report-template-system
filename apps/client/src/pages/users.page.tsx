@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { type UserResponse } from 'platform/common-base';
 import { searchQueryOrUndef } from 'platform/prisma';
 import { api } from '../api/client.api';
-import { Can } from '../components/can.component';
 import { UserModal } from '../components/modal/user.modal';
 import { ResourceSearchInput } from '../components/resource-filters.component';
 import { ResourcePage } from '../components/resource-page.component';
@@ -39,7 +38,6 @@ export const UsersPage = () => {
   return (
     <ResourcePage
       title="Users"
-      description="Manage platform identities and public account information."
       itemName="user"
       columns={columns}
       load={(pagination) =>
@@ -76,8 +74,8 @@ export const UsersPage = () => {
             )
           : undefined
       }
-      rowAction={(user, reload) => (
-        <Can granted={access.users.update({ user })}>
+      rowAction={(user, reload) =>
+        access.users.update({ user }) ? (
           <UserModal
             user={user}
             onSaved={reload}
@@ -87,8 +85,8 @@ export const UsersPage = () => {
               </Button>
             }
           />
-        </Can>
-      )}
+        ) : null
+      }
       canDelete={(user) => access.users.delete({ role: user.role })}
       deleteAction={(user) => api.user.del(user.id)}
     />

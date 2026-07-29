@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { existsSync } from 'node:fs';
 import type { LaunchOptions } from 'puppeteer';
 import { ReportData, TemplateData, type TemplateBlock } from 'platform/prisma';
 import { ReportHtmlService } from './report-html.service';
@@ -48,7 +47,7 @@ export class ReportImageService {
       await page.setViewport({
         width: 794,
         height: 1123,
-        deviceScaleFactor: 1,
+        deviceScaleFactor: 0.75,
       });
       await page.setJavaScriptEnabled(false);
       await page.setRequestInterception(true);
@@ -76,18 +75,12 @@ export class ReportImageService {
 
   private launchOptions(): LaunchOptions {
     const configuredPath = process.env['PUPPETEER_EXECUTABLE_PATH'];
-    const macOsChromePath =
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-    const executablePath =
-      configuredPath ??
-      (process.platform === 'darwin' && existsSync(macOsChromePath)
-        ? macOsChromePath
-        : undefined);
 
     return {
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      ...(executablePath ? { executablePath } : {}),
+      // Keep image previews on the same pinned browser as PDF rendering.
+      ...(configuredPath ? { executablePath: configuredPath } : {}),
     };
   }
 }

@@ -65,7 +65,6 @@ export const PatientsPage = () => {
   return (
     <ResourcePage
       title="Patients"
-      description="View patients assigned to the clinics you can manage."
       itemName="patient"
       columns={columns}
       load={(pagination) => {

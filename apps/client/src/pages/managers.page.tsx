@@ -36,7 +36,6 @@ export const ManagersPage = () => {
   return (
     <ResourcePage
       title="Managers"
-      description="Promote existing users and manage clinic ownership roles."
       itemName="manager"
       columns={columns}
       load={(pagination) =>

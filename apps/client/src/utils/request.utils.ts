@@ -1,6 +1,5 @@
 import { type ApiRequest, type ApiRequestProps } from 'platform/common-base';
-
-const DEFAULT_ERROR_MESSAGE = 'Something went wrong.';
+import { DEFAULT_ERROR_MESSAGE } from '../constants';
 
 export class ApiError extends Error {
   constructor(

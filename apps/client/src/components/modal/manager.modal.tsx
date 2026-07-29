@@ -14,8 +14,6 @@ import { useRequest } from '../../hooks/request.hook';
 import { formatOptionLabel } from '../../utils/formatting.utils';
 import { getErrorMessage } from '../../utils/request.utils';
 import { EntityAutocomplete } from '../form/entity-autocomplete.component';
-import { FormFieldGroup } from '../form/form-field-group.component';
-import { SubmitLabel } from '../form/submit-label.component';
 import { Button } from '../shadcn/ui/button';
 import {
   Dialog,
@@ -26,6 +24,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../shadcn/ui/dialog';
+import { Field, FieldError, FieldLabel } from '../shadcn/ui/field';
+import { Spinner } from '../shadcn/ui/spinner';
 
 export const ManagerModal = ({
   trigger,
@@ -84,11 +84,8 @@ export const ManagerModal = ({
             (data) => void createRequest.fetch(data).catch(() => undefined),
           )}
         >
-          <FormFieldGroup
-            label="User"
-            htmlFor="manager-user"
-            error={form.formState.errors.userId?.message}
-          >
+          <Field data-invalid={Boolean(form.formState.errors.userId)}>
+            <FieldLabel htmlFor="manager-user">User</FieldLabel>
             <Controller
               control={form.control}
               name="userId"
@@ -111,7 +108,8 @@ export const ManagerModal = ({
                 />
               )}
             />
-          </FormFieldGroup>
+            <FieldError errors={[form.formState.errors.userId]} />
+          </Field>
           <DialogFooter>
             <Button
               type="button"
@@ -121,9 +119,8 @@ export const ManagerModal = ({
               Cancel
             </Button>
             <Button type="submit" disabled={createRequest.isLoading}>
-              <SubmitLabel loading={createRequest.isLoading}>
-                Create manager
-              </SubmitLabel>
+              {createRequest.isLoading && <Spinner data-icon="inline-start" />}
+              Create manager
             </Button>
           </DialogFooter>
         </form>

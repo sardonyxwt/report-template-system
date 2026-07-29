@@ -18,8 +18,6 @@ import { useAuthenticatedUser } from '../../providers/auth.provider';
 import { formatOptionLabel } from '../../utils/formatting.utils';
 import { getErrorMessage } from '../../utils/request.utils';
 import { EntityAutocomplete } from '../form/entity-autocomplete.component';
-import { FormFieldGroup } from '../form/form-field-group.component';
-import { SubmitLabel } from '../form/submit-label.component';
 import { Button } from '../shadcn/ui/button';
 import {
   Dialog,
@@ -30,7 +28,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../shadcn/ui/dialog';
+import { Field, FieldError, FieldLabel } from '../shadcn/ui/field';
 import { Input } from '../shadcn/ui/input';
+import { Spinner } from '../shadcn/ui/spinner';
 
 type ClinicForm = ClinicCreateRequest | ClinicUpdateRequest;
 
@@ -109,24 +109,19 @@ export const ClinicModal = ({
             (data) => void saveRequest.fetch(data).catch(() => undefined),
           )}
         >
-          <FormFieldGroup
-            label="Clinic name"
-            htmlFor="clinic-name"
-            error={form.formState.errors.name?.message}
-          >
+          <Field data-invalid={Boolean(form.formState.errors.name)}>
+            <FieldLabel htmlFor="clinic-name">Clinic name</FieldLabel>
             <Input
               id="clinic-name"
               placeholder="Northstar Health"
               aria-invalid={Boolean(form.formState.errors.name)}
               {...form.register('name')}
             />
-          </FormFieldGroup>
+            <FieldError errors={[form.formState.errors.name]} />
+          </Field>
           {canAssignManager && (
-            <FormFieldGroup
-              label="Manager"
-              htmlFor="clinic-manager"
-              error={form.formState.errors.managerId?.message}
-            >
+            <Field data-invalid={Boolean(form.formState.errors.managerId)}>
+              <FieldLabel htmlFor="clinic-manager">Manager</FieldLabel>
               <Controller
                 control={form.control}
                 name="managerId"
@@ -149,7 +144,8 @@ export const ClinicModal = ({
                   />
                 )}
               />
-            </FormFieldGroup>
+              <FieldError errors={[form.formState.errors.managerId]} />
+            </Field>
           )}
           <DialogFooter>
             <Button
@@ -160,9 +156,8 @@ export const ClinicModal = ({
               Cancel
             </Button>
             <Button type="submit" disabled={saveRequest.isLoading}>
-              <SubmitLabel loading={saveRequest.isLoading}>
-                {clinic ? 'Save changes' : 'Create clinic'}
-              </SubmitLabel>
+              {saveRequest.isLoading && <Spinner data-icon="inline-start" />}
+              {clinic ? 'Save changes' : 'Create clinic'}
             </Button>
           </DialogFooter>
         </form>

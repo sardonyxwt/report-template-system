@@ -14,7 +14,7 @@ import { AsyncAutocompleteFilter } from '../components/resource-filters.componen
 import { ResourcePage } from '../components/resource-page.component';
 import { useAccessControl } from '../providers/access-control.provider';
 import { useAuthenticatedUser } from '../providers/auth.provider';
-import { routes } from '../routes';
+import { routes } from '../routes/config';
 import { formatDateTime, formatOptionLabel } from '../utils/formatting.utils';
 
 export const ClinicReportsPage = () => {
@@ -86,7 +86,6 @@ export const ClinicReportsPage = () => {
   return (
     <ResourcePage
       title="Clinic reports"
-      description="Review source reports generated for clinic patients."
       itemName="clinic report"
       columns={columns}
       load={(pagination) =>

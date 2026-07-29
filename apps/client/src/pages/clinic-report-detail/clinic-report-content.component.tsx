@@ -1,16 +1,12 @@
 import {
-  ArrowLeftIcon,
   CalendarDaysIcon,
   HospitalIcon,
   StethoscopeIcon,
   UserRoundIcon,
 } from 'lucide-react';
 import { type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { type ClinicReportResponse } from 'platform/common-base';
 import { Badge } from '../../components/shadcn/ui/badge';
-import { Button } from '../../components/shadcn/ui/button';
-import { routes } from '../../routes';
 import { formatDate, formatDateTime } from '../../utils/formatting.utils';
 import { ClinicReportBlock } from './clinic-report-block.component';
 
@@ -51,14 +47,7 @@ export const ClinicReportContent = ({
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-8">
       <div>
-        <Button asChild variant="ghost" className="-ml-3">
-          <Link to={routes.app.clinicReports()}>
-            <ArrowLeftIcon />
-            Back to clinic reports
-          </Link>
-        </Button>
-
-        <div className="relative mt-4 overflow-hidden rounded-3xl border bg-gradient-to-br from-primary/15 via-card to-card px-5 py-7 shadow-sm sm:px-8 sm:py-10">
+        <div className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-primary/15 via-card to-card px-5 py-7 shadow-sm sm:px-8 sm:py-10">
           <div className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-primary/10 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-24 left-1/3 size-56 rounded-full bg-sky-500/10 blur-3xl" />
           <div className="relative max-w-3xl">

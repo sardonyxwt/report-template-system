@@ -16,8 +16,6 @@ import { useAuthenticatedUser } from '../../providers/auth.provider';
 import { formatOptionLabel } from '../../utils/formatting.utils';
 import { getErrorMessage } from '../../utils/request.utils';
 import { EntityAutocomplete } from '../form/entity-autocomplete.component';
-import { FormFieldGroup } from '../form/form-field-group.component';
-import { SubmitLabel } from '../form/submit-label.component';
 import { Button } from '../shadcn/ui/button';
 import {
   Dialog,
@@ -28,7 +26,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../shadcn/ui/dialog';
+import { Field, FieldError, FieldLabel } from '../shadcn/ui/field';
 import { Input } from '../shadcn/ui/input';
+import { Spinner } from '../shadcn/ui/spinner';
 
 export const PatientModal = ({
   trigger,
@@ -102,11 +102,8 @@ export const PatientModal = ({
             (data) => void createRequest.fetch(data).catch(() => undefined),
           )}
         >
-          <FormFieldGroup
-            label="Clinic"
-            htmlFor="patient-clinic"
-            error={form.formState.errors.clinicId?.message}
-          >
+          <Field data-invalid={Boolean(form.formState.errors.clinicId)}>
+            <FieldLabel htmlFor="patient-clinic">Clinic</FieldLabel>
             <Controller
               control={form.control}
               name="clinicId"
@@ -127,13 +124,11 @@ export const PatientModal = ({
                 />
               )}
             />
-          </FormFieldGroup>
+            <FieldError errors={[form.formState.errors.clinicId]} />
+          </Field>
           {isAdmin ? (
-            <FormFieldGroup
-              label="User"
-              htmlFor="patient-user"
-              error={form.formState.errors.email?.message}
-            >
+            <Field data-invalid={Boolean(form.formState.errors.email)}>
+              <FieldLabel htmlFor="patient-user">User</FieldLabel>
               <Controller
                 control={form.control}
                 name="email"
@@ -160,13 +155,11 @@ export const PatientModal = ({
                   />
                 )}
               />
-            </FormFieldGroup>
+              <FieldError errors={[form.formState.errors.email]} />
+            </Field>
           ) : (
-            <FormFieldGroup
-              label="User email"
-              htmlFor="patient-email"
-              error={form.formState.errors.email?.message}
-            >
+            <Field data-invalid={Boolean(form.formState.errors.email)}>
+              <FieldLabel htmlFor="patient-email">User email</FieldLabel>
               <Input
                 id="patient-email"
                 type="email"
@@ -174,7 +167,8 @@ export const PatientModal = ({
                 aria-invalid={Boolean(form.formState.errors.email)}
                 {...form.register('email')}
               />
-            </FormFieldGroup>
+              <FieldError errors={[form.formState.errors.email]} />
+            </Field>
           )}
           <DialogFooter>
             <Button
@@ -185,9 +179,8 @@ export const PatientModal = ({
               Cancel
             </Button>
             <Button type="submit" disabled={createRequest.isLoading}>
-              <SubmitLabel loading={createRequest.isLoading}>
-                Assign patient
-              </SubmitLabel>
+              {createRequest.isLoading && <Spinner data-icon="inline-start" />}
+              Assign patient
             </Button>
           </DialogFooter>
         </form>

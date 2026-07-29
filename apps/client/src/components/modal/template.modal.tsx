@@ -20,6 +20,7 @@ import {
   EyeIcon,
   GripVerticalIcon,
   PencilIcon,
+  RefreshCwIcon,
   SparklesIcon,
 } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -34,6 +35,7 @@ import {
   type ClinicResponse,
   REFERENCE_ITEMS_LIMIT,
   type TemplateAiEditRequest,
+  type TemplateAiReasoningEffort,
   type TemplateAiEditResponse,
   type TemplateCreateRequest,
   TemplateCreateRequestSchema,
@@ -48,12 +50,15 @@ import {
   UserRole,
 } from 'platform/prisma';
 import { api } from '../../api/client.api';
+import {
+  A4_PAGE_HEIGHT_PX,
+  TEMPLATE_BLOCK_PREVIEW_BOTTOM_PADDING_PX,
+  TEMPLATE_BLOCK_PREVIEW_FALLBACK_HEIGHT_PX,
+} from '../../constants';
 import { type RequestStatus, useRequest } from '../../hooks/request.hook';
 import { useAuthenticatedUser } from '../../providers/auth.provider';
 import { getErrorMessage } from '../../utils/request.utils';
 import { EntityAutocomplete } from '../form/entity-autocomplete.component';
-import { FormFieldGroup } from '../form/form-field-group.component';
-import { SubmitLabel } from '../form/submit-label.component';
 import { TemplateAiEditor } from '../form/template-ai-editor.component';
 import { cn } from '../shadcn/lib/utils';
 import { Button } from '../shadcn/ui/button';
@@ -67,7 +72,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../shadcn/ui/dialog';
+import { Field, FieldError, FieldLabel } from '../shadcn/ui/field';
 import { Input } from '../shadcn/ui/input';
+import { Spinner } from '../shadcn/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../shadcn/ui/tabs';
 import { Textarea } from '../shadcn/ui/textarea';
 
@@ -86,7 +93,7 @@ export const TemplateModal = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
-  const [previewHeight, setPreviewHeight] = useState(A4_HEIGHT_PX);
+  const [previewHeight, setPreviewHeight] = useState(A4_PAGE_HEIGHT_PX);
   const [aiContextIds, setAiContextIds] = useState<
     Partial<Record<AiEditorScope, string>>
   >({});
@@ -195,7 +202,7 @@ export const TemplateModal = ({
 
   const showPreview = () => {
     setActiveTab('preview');
-    setPreviewHeight(A4_HEIGHT_PX);
+    setPreviewHeight(A4_PAGE_HEIGHT_PX);
     void previewRequest
       .fetch({ data: form.getValues('data') })
       .catch(() => undefined);
@@ -203,6 +210,8 @@ export const TemplateModal = ({
 
   const editTemplateWithAi = async (
     prompt: string,
+    reasoningEffort: TemplateAiReasoningEffort,
+    visualValidation: boolean,
     blockType?: TemplateBlock['type'],
   ) => {
     const session = aiSessionRef.current;
@@ -214,6 +223,8 @@ export const TemplateModal = ({
       {
         data: form.getValues('data'),
         prompt,
+        reasoningEffort,
+        visualValidation,
         ...(blockType ? { blockType } : {}),
         ...(aiContextIds[scope] ? { contextId: aiContextIds[scope] } : {}),
       },
@@ -238,7 +249,7 @@ export const TemplateModal = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
             {template ? 'Edit template' : 'Create template'}
@@ -249,29 +260,24 @@ export const TemplateModal = ({
         </DialogHeader>
         <form
           noValidate
-          className="grid gap-5"
+          className="grid min-w-0 gap-5"
           onSubmit={form.handleSubmit(
             (data) => void saveRequest.fetch(data).catch(() => undefined),
           )}
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormFieldGroup
-              label="Template name"
-              htmlFor="template-name"
-              error={form.formState.errors.name?.message}
-            >
+            <Field data-invalid={Boolean(form.formState.errors.name)}>
+              <FieldLabel htmlFor="template-name">Template name</FieldLabel>
               <Input
                 id="template-name"
                 placeholder="Patient wellbeing report"
                 aria-invalid={Boolean(form.formState.errors.name)}
                 {...form.register('name')}
               />
-            </FormFieldGroup>
-            <FormFieldGroup
-              label="Clinic"
-              htmlFor="template-clinic"
-              error={form.formState.errors.clinicId?.message}
-            >
+              <FieldError errors={[form.formState.errors.name]} />
+            </Field>
+            <Field data-invalid={Boolean(form.formState.errors.clinicId)}>
+              <FieldLabel htmlFor="template-clinic">Clinic</FieldLabel>
               <Controller
                 control={form.control}
                 name="clinicId"
@@ -292,10 +298,11 @@ export const TemplateModal = ({
                   />
                 )}
               />
-            </FormFieldGroup>
+              <FieldError errors={[form.formState.errors.clinicId]} />
+            </Field>
           </div>
 
-          <div className="grid gap-3">
+          <div className="grid min-w-0 gap-3">
             <div>
               <h3 className="font-medium">Template blocks</h3>
               <p className="text-sm text-muted-foreground">
@@ -305,6 +312,7 @@ export const TemplateModal = ({
             </div>
 
             <Tabs
+              className="min-w-0"
               value={activeTab}
               onValueChange={(value) => {
                 if (value === 'preview') {
@@ -326,7 +334,7 @@ export const TemplateModal = ({
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="edit" className="grid gap-3">
+              <TabsContent value="edit" className="grid min-w-0 gap-3">
                 <div className="grid gap-2 rounded-xl border bg-muted/30 p-3">
                   <div>
                     <h4 className="flex items-center gap-2 font-medium">
@@ -347,7 +355,13 @@ export const TemplateModal = ({
                     successMessage="Template updated."
                     ariaLabel="Complete template AI instructions"
                     placeholder="Describe what you want AI to change across the template…"
-                    onSubmit={(prompt) => editTemplateWithAi(prompt)}
+                    onSubmit={(prompt, reasoningEffort, visualValidation) =>
+                      editTemplateWithAi(
+                        prompt,
+                        reasoningEffort,
+                        visualValidation,
+                      )
+                    }
                   />
                 </div>
 
@@ -360,7 +374,7 @@ export const TemplateModal = ({
                     items={blocks.fields.map(({ type }) => type)}
                     strategy={verticalListSortingStrategy}
                   >
-                    <div className="grid gap-2">
+                    <div className="grid min-w-0 gap-2">
                       {blocks.fields.map((block, index) => (
                         <SortableTemplateBlock
                           key={block.id}
@@ -372,8 +386,17 @@ export const TemplateModal = ({
                           aiLoading={aiEditRequest.isLoading}
                           aiProgressMessage={aiProgressMessage}
                           aiStatus={aiEditRequest.status}
-                          onAiEdit={(prompt) =>
-                            editTemplateWithAi(prompt, block.type)
+                          onAiEdit={(
+                            prompt,
+                            reasoningEffort,
+                            visualValidation,
+                          ) =>
+                            editTemplateWithAi(
+                              prompt,
+                              reasoningEffort,
+                              visualValidation,
+                              block.type,
+                            )
                           }
                         />
                       ))}
@@ -384,9 +407,26 @@ export const TemplateModal = ({
 
               <TabsContent
                 value="preview"
-                className="min-h-72 overflow-hidden rounded-xl border bg-muted/40"
+                className="min-h-72 min-w-0 max-w-full overflow-hidden rounded-xl border bg-muted/40"
               >
-                <div className="min-h-72 overflow-x-auto p-4">
+                <div className="flex items-center justify-between border-b bg-background px-3 py-2">
+                  <p className="text-sm text-muted-foreground">
+                    Rendered with preview report data
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={previewRequest.isLoading}
+                    onClick={showPreview}
+                  >
+                    <RefreshCwIcon
+                      className={cn(previewRequest.isLoading && 'animate-spin')}
+                    />
+                    Refresh
+                  </Button>
+                </div>
+                <div className="min-h-72 w-full min-w-0 max-w-full overflow-x-auto p-4">
                   {previewRequest.isLoading && (
                     <p className="grid min-h-64 place-items-center p-8 text-sm text-muted-foreground">
                       Generating preview…
@@ -414,7 +454,7 @@ export const TemplateModal = ({
                         const document = event.currentTarget.contentDocument;
                         setPreviewHeight(
                           Math.max(
-                            A4_HEIGHT_PX,
+                            A4_PAGE_HEIGHT_PX,
                             document?.documentElement.scrollHeight ?? 0,
                             document?.body.scrollHeight ?? 0,
                           ),
@@ -445,9 +485,8 @@ export const TemplateModal = ({
               type="submit"
               disabled={saveRequest.isLoading || aiEditRequest.isLoading}
             >
-              <SubmitLabel loading={saveRequest.isLoading}>
-                {template ? 'Save changes' : 'Create template'}
-              </SubmitLabel>
+              {saveRequest.isLoading && <Spinner data-icon="inline-start" />}
+              {template ? 'Save changes' : 'Create template'}
             </Button>
           </DialogFooter>
         </form>
@@ -475,10 +514,22 @@ const SortableTemplateBlock = ({
   aiLoading: boolean;
   aiProgressMessage: string;
   aiStatus: RequestStatus;
-  onAiEdit: (prompt: string) => Promise<void>;
+  onAiEdit: (
+    prompt: string,
+    reasoningEffort: TemplateAiReasoningEffort,
+    visualValidation: boolean,
+  ) => Promise<void>;
 }) => {
   const [expanded, setExpanded] = useState(false);
-  const [editorMode, setEditorMode] = useState<'manual' | 'ai'>('manual');
+  const [editorMode, setEditorMode] = useState<'manual' | 'ai' | 'preview'>(
+    'manual',
+  );
+  const [previewHeight, setPreviewHeight] = useState(
+    TEMPLATE_BLOCK_PREVIEW_FALLBACK_HEIGHT_PX,
+  );
+  const previewRequest = useRequest((data: TemplatePreviewRequest) =>
+    api.template.preview(data),
+  );
   const templateError =
     form.formState.errors.data?.blocks?.[index]?.template?.message;
   const {
@@ -496,6 +547,17 @@ const SortableTemplateBlock = ({
     }
   }, [templateError]);
 
+  const showPreview = () => {
+    setEditorMode('preview');
+    setPreviewHeight(TEMPLATE_BLOCK_PREVIEW_FALLBACK_HEIGHT_PX);
+    void previewRequest
+      .fetch({
+        data: form.getValues('data'),
+        blockType: block.type,
+      })
+      .catch(() => undefined);
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -504,7 +566,7 @@ const SortableTemplateBlock = ({
         transition,
       }}
       className={cn(
-        'rounded-xl border bg-background transition-shadow',
+        'min-w-0 max-w-full rounded-xl border bg-background transition-shadow',
         isDragging && 'relative z-10 opacity-70 shadow-lg',
       )}
     >
@@ -552,12 +614,18 @@ const SortableTemplateBlock = ({
       </div>
 
       {expanded && (
-        <div className="border-t p-3">
+        <div className="min-w-0 border-t p-3">
           <Tabs
+            className="min-w-0"
             value={editorMode}
-            onValueChange={(value) =>
-              setEditorMode(value === 'ai' ? 'ai' : 'manual')
-            }
+            onValueChange={(value) => {
+              if (value === 'preview') {
+                showPreview();
+                return;
+              }
+
+              setEditorMode(value === 'ai' ? 'ai' : 'manual');
+            }}
           >
             <TabsList
               className="mb-1"
@@ -570,6 +638,10 @@ const SortableTemplateBlock = ({
               <TabsTrigger value="ai">
                 <SparklesIcon />
                 AI
+              </TabsTrigger>
+              <TabsTrigger value="preview">
+                <EyeIcon />
+                Preview
               </TabsTrigger>
             </TabsList>
 
@@ -600,6 +672,62 @@ const SortableTemplateBlock = ({
                 placeholder="Describe how you want AI to update this block…"
                 onSubmit={onAiEdit}
               />
+            </TabsContent>
+
+            <TabsContent value="preview" className="min-w-0 max-w-full">
+              <div className="min-w-0 max-w-full overflow-hidden rounded-xl border bg-muted/40">
+                <div className="flex items-center justify-between border-b bg-background px-3 py-2">
+                  <p className="text-sm text-muted-foreground">
+                    Rendered with preview report data
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={previewRequest.isLoading}
+                    onClick={showPreview}
+                  >
+                    <RefreshCwIcon
+                      className={cn(previewRequest.isLoading && 'animate-spin')}
+                    />
+                    Refresh
+                  </Button>
+                </div>
+                <div className="w-full min-w-0 max-w-full overflow-x-auto p-4">
+                  {previewRequest.isLoading && (
+                    <p className="grid min-h-56 place-items-center text-sm text-muted-foreground">
+                      Generating block preview…
+                    </p>
+                  )}
+                  {previewRequest.isError && (
+                    <div className="grid min-h-56 place-content-center text-center">
+                      <p className="font-medium">
+                        Block preview could not be generated
+                      </p>
+                      <p className="mt-1 text-sm text-destructive">
+                        {getErrorMessage(previewRequest.error)}
+                      </p>
+                    </div>
+                  )}
+                  {previewRequest.data && !previewRequest.isLoading && (
+                    <iframe
+                      title={`${formatBlockType(block.type)} block preview`}
+                      sandbox="allow-same-origin"
+                      scrolling="no"
+                      srcDoc={previewRequest.data}
+                      style={{ height: previewHeight }}
+                      className="mx-auto block w-[210mm] max-w-none bg-white shadow-md"
+                      onLoad={(event) => {
+                        setPreviewHeight(
+                          getBlockPreviewHeight(
+                            event.currentTarget.contentDocument,
+                          ),
+                        );
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
@@ -706,4 +834,14 @@ const formatBlockType = (value: string) =>
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, (letter) => letter.toUpperCase());
 
-const A4_HEIGHT_PX = 1123;
+const getBlockPreviewHeight = (document: Document | null): number => {
+  const block = document?.querySelector<HTMLElement>('[data-report-block]');
+
+  if (!block) {
+    return TEMPLATE_BLOCK_PREVIEW_FALLBACK_HEIGHT_PX;
+  }
+
+  const bounds = block.getBoundingClientRect();
+
+  return Math.ceil(bounds.bottom + TEMPLATE_BLOCK_PREVIEW_BOTTOM_PADDING_PX);
+};

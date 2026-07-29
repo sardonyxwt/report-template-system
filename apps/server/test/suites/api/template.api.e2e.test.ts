@@ -157,6 +157,17 @@ describe('api.template', () => {
       expect(response.headers['content-type']).toContain('text/html');
       expect(response.text).toContain('<!doctype html>');
       expect(response.text).toContain('data-report-block="cover"');
+
+      const blockResponse = await context
+        .apiCall({
+          ...endpoints.template.preview,
+          accessToken,
+        })
+        .send({ data, blockType: 'summary' });
+
+      expect(blockResponse.status).toBe(HttpStatus.OK);
+      expect(blockResponse.text).toContain('data-report-block="summary"');
+      expect(blockResponse.text).not.toContain('data-report-block="cover"');
     }
 
     const userResponse = await context

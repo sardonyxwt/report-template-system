@@ -114,12 +114,12 @@ the server-side root `.env` file:
 
 ```dotenv
 OPENAI_API_KEY=<your-project-api-key>
-OPENAI_MODEL=gpt-5.6
+OPENAI_MODEL=gpt-5.6-luna
 OPENAI_TIMEOUT_MS=120000
 ```
 
 `OPENAI_API_KEY` is required for the server to start. `OPENAI_MODEL` defaults to
-`gpt-5.6`, and `OPENAI_TIMEOUT_MS` defaults to `120000`. The official
+`gpt-5.6-luna`, and `OPENAI_TIMEOUT_MS` defaults to `120000`. The official
 [OpenAI quickstart](https://developers.openai.com/api/docs/quickstart#create-and-export-an-api-key)
 also documents creating and exporting API keys.
 

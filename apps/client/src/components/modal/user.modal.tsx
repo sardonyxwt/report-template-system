@@ -13,8 +13,6 @@ import { api } from '../../api/client.api';
 import { useRequest } from '../../hooks/request.hook';
 import { useAuthenticatedUser } from '../../providers/auth.provider';
 import { getErrorMessage } from '../../utils/request.utils';
-import { FormFieldGroup } from '../form/form-field-group.component';
-import { SubmitLabel } from '../form/submit-label.component';
 import { Button } from '../shadcn/ui/button';
 import {
   Dialog,
@@ -25,7 +23,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../shadcn/ui/dialog';
+import { Field, FieldError, FieldLabel } from '../shadcn/ui/field';
 import { Input } from '../shadcn/ui/input';
+import { Spinner } from '../shadcn/ui/spinner';
 
 type UserForm = UserCreateRequest | UserUpdateRequest;
 
@@ -86,11 +86,8 @@ export const UserModal = ({
             (data) => void saveRequest.fetch(data).catch(() => undefined),
           )}
         >
-          <FormFieldGroup
-            label="Full name"
-            htmlFor="user-full-name"
-            error={form.formState.errors.fullName?.message}
-          >
+          <Field data-invalid={Boolean(form.formState.errors.fullName)}>
+            <FieldLabel htmlFor="user-full-name">Full name</FieldLabel>
             <Input
               id="user-full-name"
               placeholder="Alex Morgan"
@@ -99,12 +96,10 @@ export const UserModal = ({
                 setValueAs: (value) => value || null,
               })}
             />
-          </FormFieldGroup>
-          <FormFieldGroup
-            label="Email"
-            htmlFor="user-email"
-            error={form.formState.errors.email?.message}
-          >
+            <FieldError errors={[form.formState.errors.fullName]} />
+          </Field>
+          <Field data-invalid={Boolean(form.formState.errors.email)}>
+            <FieldLabel htmlFor="user-email">Email</FieldLabel>
             {isEditingSelf ? (
               <>
                 <Input
@@ -125,7 +120,8 @@ export const UserModal = ({
                 {...form.register('email')}
               />
             )}
-          </FormFieldGroup>
+            <FieldError errors={[form.formState.errors.email]} />
+          </Field>
           <DialogFooter>
             <Button
               type="button"
@@ -135,9 +131,8 @@ export const UserModal = ({
               Cancel
             </Button>
             <Button type="submit" disabled={saveRequest.isLoading}>
-              <SubmitLabel loading={saveRequest.isLoading}>
-                {user ? 'Save changes' : 'Create user'}
-              </SubmitLabel>
+              {saveRequest.isLoading && <Spinner data-icon="inline-start" />}
+              {user ? 'Save changes' : 'Create user'}
             </Button>
           </DialogFooter>
         </form>

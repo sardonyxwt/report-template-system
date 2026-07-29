@@ -6,7 +6,7 @@ import {
   type AppSection,
   canAccessAppSection,
   getDefaultAppRoute,
-} from '../routes';
+} from './config';
 
 type SectionRouteProps = PropsWithChildren<{
   section: AppSection;

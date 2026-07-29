@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import OpenAI from 'openai';
 import { zodResponsesFunction } from 'openai/helpers/zod';
 import type {
@@ -71,6 +71,8 @@ export class OpenAiService {
   readonly client: OpenAI;
 
   constructor(
+    @Inject(Logger)
+    private readonly logger: Logger,
     @Inject(OPEN_AI_MODULE_OPTIONS)
     readonly options: OpenAiModuleOptions,
   ) {
@@ -222,10 +224,42 @@ export class OpenAiService {
           toolCall,
         };
 
+        const startedAt = Date.now();
+        const logContext = {
+          toolName: toolCall.name,
+          toolCallId: toolCall.call_id,
+          iteration,
+        };
+
+        this.logger.log(
+          'OpenAI tool call started',
+          OpenAiService.name,
+          logContext,
+        );
+
+        let output: OpenAiToolOutput;
+
+        try {
+          output = await handleToolCall(toolCall, toolCall.parsed_arguments);
+
+          this.logger.log('OpenAI tool call completed', OpenAiService.name, {
+            ...logContext,
+            durationMs: Date.now() - startedAt,
+          });
+        } catch (error) {
+          this.logger.error('OpenAI tool call failed', OpenAiService.name, {
+            ...logContext,
+            durationMs: Date.now() - startedAt,
+            error,
+          });
+
+          throw error;
+        }
+
         toolOutputs.push({
           type: 'function_call_output',
           call_id: toolCall.call_id,
-          output: await handleToolCall(toolCall, toolCall.parsed_arguments),
+          output,
         });
       }
 

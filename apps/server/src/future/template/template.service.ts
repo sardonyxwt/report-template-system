@@ -105,10 +105,20 @@ export class TemplateService {
    *
    * @throws {BadRequestException} When Handlebars cannot render the markup.
    */
-  preview({ data }: TemplatePreviewRequest): string {
+  preview({ data, blockType }: TemplatePreviewRequest): string {
     this.session.abilityGuard('templates', 'preview');
 
     try {
+      if (blockType) {
+        const block = data.blocks.find(({ type }) => type === blockType);
+
+        if (!block) {
+          throw new Error(`Template block is missing: ${blockType}.`);
+        }
+
+        return this.reportHtmlService.renderBlock(block, REPORT_DATA_EXAMPLE);
+      }
+
       return this.reportHtmlService.render(data, REPORT_DATA_EXAMPLE);
     } catch {
       throw new BadRequestException(

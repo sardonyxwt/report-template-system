@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { existsSync } from 'node:fs';
 import type { LaunchOptions } from 'puppeteer';
 
 /**
@@ -40,18 +39,12 @@ export class ReportPdfService {
 
   private launchOptions(): LaunchOptions {
     const configuredPath = process.env['PUPPETEER_EXECUTABLE_PATH'];
-    const macOsChromePath =
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-    const executablePath =
-      configuredPath ??
-      (process.platform === 'darwin' && existsSync(macOsChromePath)
-        ? macOsChromePath
-        : undefined);
 
     return {
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      ...(executablePath ? { executablePath } : {}),
+      // Use Puppeteer's pinned browser unless an operator explicitly overrides it.
+      ...(configuredPath ? { executablePath: configuredPath } : {}),
     };
   }
 }

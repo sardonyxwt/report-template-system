@@ -12,9 +12,9 @@ import { PatientsPage } from '../pages/patients.page';
 import { RouteErrorPage } from '../pages/route-error.page';
 import { TemplatesPage } from '../pages/templates.page';
 import { UsersPage } from '../pages/users.page';
-import { type AppSection, appSections, routePaths, routes } from '../routes';
 import { AppIndexRoute } from './app-index-route.component';
 import { AuthenticatedRoute } from './authenticated-route.component';
+import { type AppSection, appSections, routes } from './config';
 import { SectionRoute } from './section-route.component';
 
 const appSectionElements: Record<AppSection, ReactNode> = {
@@ -29,12 +29,12 @@ const appSectionElements: Record<AppSection, ReactNode> = {
 
 export const router = createBrowserRouter([
   {
-    path: routePaths.home,
+    path: routes.home,
     element: <HomePage />,
     errorElement: <RouteErrorPage />,
   },
   {
-    path: routePaths.oauthGoogle,
+    path: routes.oauthGoogle,
     element: <OauthCallbackPage />,
     errorElement: <RouteErrorPage />,
   },
@@ -43,7 +43,7 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorPage />,
     children: [
       {
-        path: routePaths.app,
+        path: routes.app.root,
         element: <AppLayout />,
         children: [
           {
@@ -59,7 +59,7 @@ export const router = createBrowserRouter([
             ),
           })),
           {
-            path: routePaths.clinicReport,
+            path: routes.app.clinicReport(':reportId'),
             element: (
               <SectionRoute section="clinicReports">
                 <ClinicReportDetailPage />
@@ -72,7 +72,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '*',
-    element: <Navigate to={routes.home()} replace />,
+    element: <Navigate to={routes.home} replace />,
     errorElement: <RouteErrorPage />,
   },
 ]);

@@ -4,10 +4,10 @@ import {
   LoaderCircleIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
+import { REQUEST_SUCCESS_VISIBILITY_MS } from '../../constants';
 import { type RequestStatus } from '../../hooks/request.hook';
 import { cn } from '../shadcn/lib/utils';
-
-const SUCCESS_VISIBILITY_MS = 4_000;
 
 export const RequestStatusNotification = ({
   status,
@@ -23,8 +23,14 @@ export const RequestStatusNotification = ({
   className?: string;
 }) => {
   const [visible, setVisible] = useState(status !== 'initial');
+  const hideSuccess = useDebouncedCallback(
+    () => setVisible(false),
+    REQUEST_SUCCESS_VISIBILITY_MS,
+  );
 
   useEffect(() => {
+    hideSuccess.cancel();
+
     if (status === 'initial') {
       setVisible(false);
       return;
@@ -33,16 +39,11 @@ export const RequestStatusNotification = ({
     setVisible(true);
 
     if (status === 'success') {
-      const timeout = window.setTimeout(
-        () => setVisible(false),
-        SUCCESS_VISIBILITY_MS,
-      );
-
-      return () => window.clearTimeout(timeout);
+      hideSuccess();
     }
 
-    return undefined;
-  }, [status]);
+    return hideSuccess.cancel;
+  }, [hideSuccess, status]);
 
   const message =
     status === 'loading'

@@ -4,6 +4,7 @@ import {
   TemplateAggregateRequestSchema,
   TemplateAiEditEventSchema,
   TemplateAiEditProgressEventSchema,
+  TemplateAiReasoningEffortSchema,
   TemplateAiEditRequestSchema,
   TemplateAiEditResponseSchema,
   TemplateCreateRequestSchema,
@@ -24,6 +25,9 @@ export type TemplatePreviewRequest = z.infer<
 >;
 export type TemplatePreviewResponse = z.infer<
   typeof TemplatePreviewResponseSchema
+>;
+export type TemplateAiReasoningEffort = z.infer<
+  typeof TemplateAiReasoningEffortSchema
 >;
 export type TemplateAiEditRequest = z.infer<typeof TemplateAiEditRequestSchema>;
 export type TemplateAiEditResponse = z.infer<

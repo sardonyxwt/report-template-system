@@ -5,8 +5,11 @@ import { toast } from 'sonner';
 import { useRequest } from '../../hooks/request.hook';
 import { useAccessControl } from '../../providers/access-control.provider';
 import { useAuth } from '../../providers/auth.provider';
-import { canAccessAppSection, getDefaultAppRoute } from '../../routes';
-import { appNavigation } from '../../routes/app-navigation';
+import {
+  appSections,
+  canAccessAppSection,
+  getDefaultAppRoute,
+} from '../../routes/config';
 import { getInitials } from '../../utils/formatting.utils';
 import { getErrorMessage } from '../../utils/request.utils';
 import {
@@ -33,7 +36,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
   useSidebar,
 } from '../shadcn/ui/sidebar';
 
@@ -47,7 +49,7 @@ export const AppSidebar = () => {
     onSuccess: () => setLogoutDialogOpen(false),
     onError: (error) => toast.error(getErrorMessage(error)),
   });
-  const navigation = appNavigation.filter((item) =>
+  const navigation = appSections.filter((item) =>
     canAccessAppSection(item.section, access, user),
   );
   const defaultRoute = getDefaultAppRoute(access, user);
@@ -182,7 +184,6 @@ export const AppSidebar = () => {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   );
 };

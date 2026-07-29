@@ -8,7 +8,6 @@ import {
 } from 'platform/common-base';
 import { searchQueryOrUndef, UserRole } from 'platform/prisma';
 import { api } from '../api/client.api';
-import { Can } from '../components/can.component';
 import { TemplateModal } from '../components/modal/template.modal';
 import {
   AsyncAutocompleteFilter,
@@ -59,7 +58,6 @@ export const TemplatesPage = () => {
   return (
     <ResourcePage
       title="Templates"
-      description="Create reusable, clinic-specific report structures."
       itemName="template"
       columns={columns}
       load={(pagination) =>
@@ -108,8 +106,8 @@ export const TemplatesPage = () => {
             )
           : undefined
       }
-      rowAction={(template, reload) => (
-        <Can granted={access.templates.update({ managerId: user.id })}>
+      rowAction={(template, reload) =>
+        access.templates.update({ managerId: user.id }) ? (
           <TemplateModal
             template={template}
             onSaved={reload}
@@ -119,8 +117,8 @@ export const TemplatesPage = () => {
               </Button>
             }
           />
-        </Can>
-      )}
+        ) : null
+      }
       canDelete={() => access.templates.delete({ managerId: user.id })}
       deleteAction={(template) => api.template.del(template.id)}
     />

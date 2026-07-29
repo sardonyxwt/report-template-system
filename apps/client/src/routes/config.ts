@@ -1,96 +1,99 @@
+import {
+  Building2Icon,
+  ClipboardPlusIcon,
+  FileChartColumnIcon,
+  LayoutTemplateIcon,
+  StethoscopeIcon,
+  UserCogIcon,
+  UsersIcon,
+  type LucideIcon,
+} from 'lucide-react';
 import { type ProfileResponse } from 'platform/common-base';
-import { type AccessControl } from './providers/access-control.provider';
-
-export const routePaths = {
-  home: '/',
-  oauthGoogle: '/oauth/google',
-  app: '/app',
-  users: '/app/users',
-  managers: '/app/managers',
-  clinics: '/app/clinics',
-  patients: '/app/patients',
-  templates: '/app/templates',
-  clinicReports: '/app/clinic-reports',
-  clinicReport: '/app/clinic-reports/:reportId',
-  patientReports: '/app/patient-reports',
-} as const;
+import { type AccessControl } from '../providers/access-control.provider';
 
 export const routes = {
-  home: () => routePaths.home,
-  oauth: {
-    google: () => routePaths.oauthGoogle,
-  },
+  home: '/',
+  oauthGoogle: '/oauth/google',
   app: {
-    root: () => routePaths.app,
-    users: () => routePaths.users,
-    managers: () => routePaths.managers,
-    clinics: () => routePaths.clinics,
-    patients: () => routePaths.patients,
-    templates: () => routePaths.templates,
-    clinicReports: () => routePaths.clinicReports,
-    clinicReport: (reportId: number) =>
-      `${routePaths.clinicReports}/${reportId}`,
-    patientReports: () => routePaths.patientReports,
+    root: '/app',
+    users: '/app/users',
+    managers: '/app/managers',
+    clinics: '/app/clinics',
+    patients: '/app/patients',
+    templates: '/app/templates',
+    clinicReports: '/app/clinic-reports',
+    clinicReport: (reportId: number | string) =>
+      `/app/clinic-reports/${reportId}`,
+    patientReports: '/app/patient-reports',
   },
 } as const;
 
-export type AppSection =
-  | 'users'
-  | 'managers'
-  | 'clinics'
-  | 'patients'
-  | 'templates'
-  | 'clinicReports'
-  | 'patientReports';
-
-type AppSectionDefinition = {
-  section: AppSection;
+type AppSectionDefinitionShape = {
+  section: string;
   path: string;
+  label: string;
+  icon: LucideIcon;
   canAccess: (access: AccessControl, user: ProfileResponse) => boolean;
 };
 
-export const appSections: AppSectionDefinition[] = [
+export const appSections = [
   {
     section: 'users',
-    path: routes.app.users(),
+    path: routes.app.users,
+    label: 'Users',
+    icon: UsersIcon,
     canAccess: (access) => access.users.read({}),
   },
   {
     section: 'managers',
-    path: routes.app.managers(),
+    path: routes.app.managers,
+    label: 'Managers',
+    icon: UserCogIcon,
     canAccess: (access) => access.managers.create() || access.managers.delete(),
   },
   {
     section: 'patients',
-    path: routes.app.patients(),
+    path: routes.app.patients,
+    label: 'Patients',
+    icon: StethoscopeIcon,
     canAccess: (access, user) => access.patients.read({ managerId: user.id }),
   },
   {
     section: 'clinics',
-    path: routes.app.clinics(),
+    path: routes.app.clinics,
+    label: 'Clinics',
+    icon: Building2Icon,
     canAccess: (access, user) => access.clinics.read({ managerId: user.id }),
   },
   {
     section: 'templates',
-    path: routes.app.templates(),
+    path: routes.app.templates,
+    label: 'Templates',
+    icon: LayoutTemplateIcon,
     canAccess: (access, user) => access.templates.read({ managerId: user.id }),
   },
   {
     section: 'clinicReports',
-    path: routes.app.clinicReports(),
+    path: routes.app.clinicReports,
+    label: 'Clinic reports',
+    icon: ClipboardPlusIcon,
     canAccess: (access, user) =>
       access.clinicReports.read({ managerId: user.id }),
   },
   {
     section: 'patientReports',
-    path: routes.app.patientReports(),
+    path: routes.app.patientReports,
+    label: 'Patient reports',
+    icon: FileChartColumnIcon,
     canAccess: (access, user) =>
       access.patientReports.read({
         managerId: user.id,
         patientId: user.id,
       }),
   },
-];
+] satisfies AppSectionDefinitionShape[];
+
+export type AppSection = (typeof appSections)[number]['section'];
 
 export const canAccessAppSection = (
   section: AppSection,
@@ -108,4 +111,4 @@ export const getDefaultAppRoute = (
 ) =>
   (user
     ? appSections.find((definition) => definition.canAccess(access, user))?.path
-    : undefined) ?? routes.home();
+    : undefined) ?? routes.home;

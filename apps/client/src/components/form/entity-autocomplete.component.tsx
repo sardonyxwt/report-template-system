@@ -1,8 +1,12 @@
-import { CheckIcon, SearchIcon, XIcon } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { cn } from '../shadcn/lib/utils';
-import { Button } from '../shadcn/ui/button';
-import { Input } from '../shadcn/ui/input';
+import { type ReactNode } from 'react';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '../shadcn/ui/combobox';
 
 export const EntityAutocomplete = <Item,>({
   id,
@@ -10,12 +14,18 @@ export const EntityAutocomplete = <Item,>({
   items,
   placeholder,
   emptyLabel = 'No matching options.',
+  loadingLabel = 'Loading…',
   loading = false,
   disabled = false,
   invalid = false,
+  externalFiltering = false,
+  clearValueOnInput = true,
+  className = 'w-full',
   getKey,
   getLabel,
   renderItem,
+  onOpenChange,
+  onSearchChange,
   onChange,
 }: {
   id?: string;
@@ -23,123 +33,71 @@ export const EntityAutocomplete = <Item,>({
   items: Item[];
   placeholder: string;
   emptyLabel?: string;
+  loadingLabel?: string;
   loading?: boolean;
   disabled?: boolean;
   invalid?: boolean;
+  externalFiltering?: boolean;
+  clearValueOnInput?: boolean;
+  className?: string;
   getKey: (item: Item) => string;
   getLabel: (item: Item) => string;
   renderItem?: (item: Item) => ReactNode;
+  onOpenChange?: (open: boolean) => void;
+  onSearchChange?: (value: string) => void;
   onChange: (value?: Item) => void;
-}) => {
-  const [open, setOpen] = useState(false);
-  const [input, setInput] = useState(value ? getLabel(value) : '');
-
-  useEffect(() => {
-    if (!open) {
-      setInput(value ? getLabel(value) : '');
-    }
-  }, [getLabel, open, value]);
-
-  const filteredItems = useMemo(() => {
-    const search = input.trim().toLocaleLowerCase();
-    if (!search || (value && input === getLabel(value))) {
-      return items;
-    }
-    return items.filter((item) =>
-      getLabel(item).toLocaleLowerCase().includes(search),
-    );
-  }, [getLabel, input, items, value]);
-
-  return (
-    <div
-      className="relative w-full"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) {
-          setOpen(false);
-          setInput(value ? getLabel(value) : '');
-        }
-      }}
-    >
-      <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input
-        id={id}
-        role="combobox"
-        aria-autocomplete="list"
-        aria-expanded={open}
-        value={input}
-        placeholder={placeholder}
-        disabled={disabled}
-        aria-invalid={invalid}
-        className="pr-8 pl-8"
-        onFocus={(event) => {
-          setOpen(true);
-          event.currentTarget.select();
-        }}
-        onChange={(event) => {
-          setInput(event.target.value);
-          onChange(undefined);
-          setOpen(true);
-        }}
-      />
-      {!disabled && (value || input) && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Clear selection"
-          className="absolute top-1/2 right-0.5 size-7 -translate-y-1/2"
-          onClick={() => {
-            setInput('');
-            onChange(undefined);
-            setOpen(true);
-          }}
-        >
-          <XIcon />
-        </Button>
+}) => (
+  <Combobox
+    items={items}
+    filteredItems={externalFiltering ? items : undefined}
+    value={value ?? null}
+    disabled={disabled}
+    autoHighlight
+    itemToStringLabel={getLabel}
+    itemToStringValue={getKey}
+    isItemEqualToValue={(item, selected) => getKey(item) === getKey(selected)}
+    onValueChange={(item) => onChange(item ?? undefined)}
+    onOpenChange={onOpenChange}
+    onInputValueChange={(inputValue, details) => {
+      if (clearValueOnInput && details.reason === 'input-change') {
+        onChange(undefined);
+      }
+      if (
+        details.reason === 'input-change' ||
+        details.reason === 'input-clear' ||
+        details.reason === 'clear-press'
+      ) {
+        onSearchChange?.(inputValue);
+      }
+    }}
+  >
+    <ComboboxInput
+      id={id}
+      placeholder={placeholder}
+      disabled={disabled}
+      aria-invalid={invalid}
+      showClear={!disabled}
+      className={className}
+    />
+    <ComboboxContent>
+      {loading ? (
+        <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+          {loadingLabel}
+        </p>
+      ) : (
+        <>
+          <ComboboxEmpty>{emptyLabel}</ComboboxEmpty>
+          <ComboboxList>
+            {(item: Item) => (
+              <ComboboxItem key={getKey(item)} value={item}>
+                <span className="min-w-0 flex-1">
+                  {renderItem?.(item) ?? getLabel(item)}
+                </span>
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </>
       )}
-      {open && !disabled && (
-        <div
-          role="listbox"
-          className="absolute top-full z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
-        >
-          {loading ? (
-            <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-              Loading…
-            </p>
-          ) : filteredItems.length ? (
-            filteredItems.map((item) => {
-              const selected = value && getKey(value) === getKey(item);
-              return (
-                <button
-                  key={getKey(item)}
-                  type="button"
-                  role="option"
-                  aria-selected={Boolean(selected)}
-                  className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent',
-                    selected && 'bg-accent',
-                  )}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    onChange(item);
-                    setInput(getLabel(item));
-                    setOpen(false);
-                  }}
-                >
-                  <span className="min-w-0 flex-1">
-                    {renderItem?.(item) ?? getLabel(item)}
-                  </span>
-                  {selected && <CheckIcon className="size-4 shrink-0" />}
-                </button>
-              );
-            })
-          ) : (
-            <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-              {emptyLabel}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
+    </ComboboxContent>
+  </Combobox>
+);

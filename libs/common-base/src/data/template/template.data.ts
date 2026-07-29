@@ -52,6 +52,7 @@ export const TemplateUpdateRequestSchema = z
 export const TemplatePreviewRequestSchema = z
   .object({
     data: TemplateSimpleSchema.shape.data,
+    blockType: TemplateBlockTypeSchema.optional(),
   })
   .meta({ name: 'TemplatePreviewRequestSchema' });
 
@@ -59,11 +60,17 @@ export const TemplatePreviewResponseSchema = z
   .string()
   .meta({ name: 'TemplatePreviewResponseSchema' });
 
+export const TemplateAiReasoningEffortSchema = z
+  .enum(['low', 'medium', 'high'])
+  .meta({ name: 'TemplateAiReasoningEffortSchema' });
+
 export const TemplateAiEditRequestSchema = z
   .object({
     data: TemplateSimpleSchema.shape.data,
     blockType: TemplateBlockTypeSchema.optional(),
     prompt: z.string().trim().min(1).max(10_000),
+    reasoningEffort: TemplateAiReasoningEffortSchema.default('low'),
+    visualValidation: z.boolean().default(false),
     contextId: z.string().trim().min(1).max(256).optional(),
   })
   .superRefine(({ data, blockType }, context) => {
