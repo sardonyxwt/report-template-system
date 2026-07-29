@@ -1,4 +1,4 @@
-# Platform Test
+# Report Template System
 
 Platform is an Nx monorepo with a NestJS backend API, React client, shared API contracts, Prisma database schema, and server-side utilities. The backend is organized around reusable endpoint definitions and Zod schemas so the same contracts can drive request validation, response validation, typed client helpers, and OpenAPI documentation.
 
