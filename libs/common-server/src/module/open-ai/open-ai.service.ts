@@ -81,6 +81,21 @@ export class OpenAiService {
   }
 
   /**
+   * Validates unknown input and transforms the parsed value into the shape
+   * required by an OpenAI request.
+   *
+   * The transformer receives the schema output, so Zod coercions and
+   * transformations are reflected in its input type.
+   */
+  parseInput<Schema extends z.ZodType, Result>(
+    input: unknown,
+    schema: Schema,
+    transformer: (input: z.output<Schema>) => Result,
+  ): Result {
+    return transformer(schema.parse(input));
+  }
+
+  /**
    * Defines an OpenAI Responses function tool from one authoritative Zod schema.
    *
    * The OpenAI helper converts the schema to strict JSON Schema for the model

@@ -23,6 +23,7 @@ import {
 } from 'platform/common-server';
 import {
   REPORT_DATA_EXAMPLE,
+  ReportDataSchema,
   TemplateBlockTypeSchema,
   TemplateDataSchema,
   TemplateMarkupSchema,
@@ -51,6 +52,20 @@ const CompleteTemplateDataSchema = TemplateDataSchema.safeExtend({
 
 const TemplateToolArgumentsSchema = CompleteTemplateDataSchema;
 const AiResultSchema = CompleteTemplateDataSchema;
+const TemplateAiInputSchema = z.object({
+  request: z.string().trim().min(1).max(10_000),
+  scope: z.discriminatedUnion('type', [
+    z.object({
+      type: z.literal('block'),
+      blockType: TemplateBlockTypeSchema,
+    }),
+    z.object({
+      type: z.literal('template'),
+    }),
+  ]),
+  exampleData: ReportDataSchema.shape.blocks,
+  currentTemplate: TemplateDataSchema,
+});
 
 type PreviewBlockData = {
   blockType: TemplateBlockType;
@@ -220,19 +235,23 @@ export class TemplateAiEditorService {
   ): AsyncGenerator<TemplateAiEditEvent> {
     yield this.createEvent({ type: 'initial' });
 
-    const input: ResponseInput = [
+    const input = this.openAi.parseInput(
       {
-        role: 'user',
-        content: JSON.stringify({
-          request: request.prompt,
-          scope: request.blockType
-            ? { type: 'block', blockType: request.blockType }
-            : { type: 'template' },
-          exampleData: REPORT_DATA_EXAMPLE.blocks,
-          currentTemplate: request.data,
-        }),
+        request: request.prompt,
+        scope: request.blockType
+          ? { type: 'block', blockType: request.blockType }
+          : { type: 'template' },
+        exampleData: REPORT_DATA_EXAMPLE.blocks,
+        currentTemplate: request.data,
       },
-    ];
+      TemplateAiInputSchema,
+      (data): ResponseInput => [
+        {
+          role: 'user',
+          content: JSON.stringify(data),
+        },
+      ],
+    );
 
     const events = this.openAi.run<z.infer<typeof AiResultSchema>>({
       instructions: this.createInstructions(request.blockType),
