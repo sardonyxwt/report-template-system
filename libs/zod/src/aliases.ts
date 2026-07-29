@@ -1,5 +1,7 @@
 import { z, ZodType } from 'zod';
 
+const notEmptyString = z.string().trim().min(1);
+
 export const aliases = {
   json: z.any(),
   email: z
@@ -7,11 +9,23 @@ export const aliases = {
     .meta({ example: 'example@mail.com' }),
   numberId: z.number().int().nonnegative(),
   stringId: z.uuid(),
-  notEmptyString: z.string().trim().min(1),
+  notEmptyString,
+  notEmptyStringArray: z.array(notEmptyString).min(1),
   preprocessString: <I extends ZodType>(schema: I) =>
     z.preprocess(
       (v) =>
         v === 'undefined' || v === '' ? undefined : v === 'null' ? null : v,
+      schema,
+    ),
+  preprocessStringArray: <I extends ZodType>(schema: I) =>
+    z.preprocess(
+      (value) =>
+        typeof value === 'string'
+          ? value
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : value,
       schema,
     ),
   preprocessBoolean: <I extends ZodType>(schema: I) =>

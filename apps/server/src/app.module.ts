@@ -81,7 +81,7 @@ export const AppConfigModule = ConfigModule.forRoot({
         config: ConfigService<Configuration>,
       ): OpenAiModuleOptions => ({
         apiKey: config.getOrThrow('OPENAI_API_KEY'),
-        model: config.getOrThrow('OPENAI_MODEL'),
+        modelAllowlist: config.getOrThrow('OPENAI_MODEL_ALLOWLIST'),
         timeoutMs: config.getOrThrow('OPENAI_TIMEOUT_MS'),
       }),
     }),

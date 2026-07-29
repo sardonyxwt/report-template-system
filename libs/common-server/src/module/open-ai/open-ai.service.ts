@@ -32,9 +32,19 @@ export type OpenAiTool<Context> = {
   ): OpenAiToolOutput | Promise<OpenAiToolOutput>;
 };
 
+export type OpenAiToolOptions<Parameters extends z.ZodType, Context> = {
+  name: string;
+  description: string;
+  parameters: Parameters;
+  execute(
+    argumentsValue: z.infer<Parameters>,
+    context: Context,
+  ): OpenAiToolOutput | Promise<OpenAiToolOutput>;
+};
+
 export type OpenAiRunOptions = Omit<
   ResponseCreateParamsNonStreaming,
-  'input' | 'model' | 'previous_response_id' | 'stream'
+  'input' | 'previous_response_id' | 'stream'
 > & {
   input: string | ResponseInput;
   previousResponseId?: string;
@@ -82,6 +92,10 @@ export class OpenAiService {
     });
   }
 
+  isModelAllowed(modelId: string): boolean {
+    return this.options.modelAllowlist.includes(modelId);
+  }
+
   /**
    * Validates unknown input and transforms the parsed value into the shape
    * required by an OpenAI request.
@@ -103,15 +117,9 @@ export class OpenAiService {
    * The OpenAI helper converts the schema to strict JSON Schema for the model
    * and makes `responses.parse()` validate arguments before tool dispatch.
    */
-  defineOpenAiTool<Parameters extends z.ZodType, Context>(options: {
-    name: string;
-    description: string;
-    parameters: Parameters;
-    execute(
-      argumentsValue: z.infer<Parameters>,
-      context: Context,
-    ): OpenAiToolOutput | Promise<OpenAiToolOutput>;
-  }): OpenAiTool<Context> {
+  defineOpenAiTool<Parameters extends z.ZodType, Context>(
+    options: OpenAiToolOptions<Parameters, Context>,
+  ): OpenAiTool<Context> {
     return {
       name: options.name,
       definition: zodResponsesFunction({
@@ -196,7 +204,6 @@ export class OpenAiService {
         ParsedResult
       >({
         ...responseOptions,
-        model: this.options.model,
         input,
         ...(previousResponseId
           ? { previous_response_id: previousResponseId }

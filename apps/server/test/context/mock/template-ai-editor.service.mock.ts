@@ -8,10 +8,12 @@ import { TemplateAiEditorService } from '../../../src/future/template/template-a
 @Injectable()
 export class TemplateAiEditorServiceMock extends TemplateAiEditorService {
   static events: TemplateAiEditEvent[] = [];
+  static request?: TemplateAiEditRequest;
 
   override async *editEvents(
     request: TemplateAiEditRequest,
   ): AsyncGenerator<TemplateAiEditEvent> {
+    TemplateAiEditorServiceMock.request = request;
     TemplateAiEditorServiceMock.events = [
       {
         type: 'progress',

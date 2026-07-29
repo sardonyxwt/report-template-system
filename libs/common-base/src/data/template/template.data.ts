@@ -69,7 +69,9 @@ export const TemplateAiEditRequestSchema = z
     data: TemplateSimpleSchema.shape.data,
     blockType: TemplateBlockTypeSchema.optional(),
     prompt: z.string().trim().min(1).max(10_000),
+    model: z.string().trim().min(1),
     reasoningEffort: TemplateAiReasoningEffortSchema.default('low'),
+    speed: z.boolean().default(false),
     visualValidation: z.boolean().default(false),
     contextId: z.string().trim().min(1).max(256).optional(),
   })

@@ -7,6 +7,7 @@ import {
 } from 'platform/common-base';
 import { endpoints } from '../../../src/endpoints';
 import { withAppContext } from '../../context/app.context';
+import { OpenAiServiceMock } from '../../context/mock/open-ai.service.mock';
 import { TemplateAiEditorServiceMock } from '../../context/mock/template-ai-editor.service.mock';
 import { clinicFixtures } from '../../fixture/clinic.fixture';
 import { templateFixtures } from '../../fixture/template.fixture';
@@ -184,6 +185,7 @@ describe('api.template', () => {
     const admin = await macros.createAuthorizedAdmin();
     const [, authorizedManager] = await macros.createAuthorizedManager(admin);
     const data = templateFixtures.template(1).data;
+    const selectedModel = OpenAiServiceMock.modelAllowlist[0];
 
     const response = await context
       .apiCall({
@@ -193,6 +195,8 @@ describe('api.template', () => {
       .send({
         data,
         prompt: 'Reverse the block order and improve the layout.',
+        model: selectedModel,
+        speed: true,
       });
     const events = response.text
       .trim()
@@ -216,7 +220,29 @@ describe('api.template', () => {
 
     expect(response.status).toBe(HttpStatus.OK);
     expect(response.headers['content-type']).toContain('text/event-stream');
+    expect(TemplateAiEditorServiceMock.request).toMatchObject({
+      model: selectedModel,
+      speed: true,
+    });
     expect(events).toEqual(TemplateAiEditorServiceMock.events);
+  });
+
+  it('rejects an AI model outside the server allowlist', async () => {
+    const admin = await macros.createAuthorizedAdmin();
+    const [, authorizedManager] = await macros.createAuthorizedManager(admin);
+
+    const response = await context
+      .apiCall({
+        ...endpoints.template.aiEditStream,
+        accessToken: authorizedManager.accessToken!,
+      })
+      .send({
+        data: templateFixtures.template(1).data,
+        prompt: 'Improve the layout.',
+        model: 'unlisted-model',
+      });
+
+    expect(response.status).toBe(HttpStatus.BAD_REQUEST);
   });
 
   it('denies access to templates of another manager', async () => {

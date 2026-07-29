@@ -81,6 +81,10 @@ import { Textarea } from '../shadcn/ui/textarea';
 type TemplateForm = TemplateCreateRequest | TemplateUpdateRequest;
 type TemplateBlock = TemplateData['blocks'][number];
 type AiEditorScope = TemplateBlock['type'] | 'template';
+type AiEditorContext = {
+  id: string;
+  model: string;
+};
 
 export const TemplateModal = ({
   trigger,
@@ -94,8 +98,8 @@ export const TemplateModal = ({
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [previewHeight, setPreviewHeight] = useState(A4_PAGE_HEIGHT_PX);
-  const [aiContextIds, setAiContextIds] = useState<
-    Partial<Record<AiEditorScope, string>>
+  const [aiContexts, setAiContexts] = useState<
+    Partial<Record<AiEditorScope, AiEditorContext>>
   >({});
   const [activeAiScope, setActiveAiScope] = useState<AiEditorScope>();
   const [aiProgressMessage, setAiProgressMessage] = useState(
@@ -177,7 +181,7 @@ export const TemplateModal = ({
 
     if (open) {
       setActiveTab('edit');
-      setAiContextIds({});
+      setAiContexts({});
       setActiveAiScope(undefined);
       setAiProgressMessage('Sending your request…');
       form.reset(createDefaultValues(template));
@@ -210,12 +214,15 @@ export const TemplateModal = ({
 
   const editTemplateWithAi = async (
     prompt: string,
+    model: string,
     reasoningEffort: TemplateAiReasoningEffort,
     visualValidation: boolean,
+    speed: boolean,
     blockType?: TemplateBlock['type'],
   ) => {
     const session = aiSessionRef.current;
     const scope: AiEditorScope = blockType ?? 'template';
+    const context = aiContexts[scope];
     setActiveAiScope(scope);
     setAiProgressMessage('Sending your request…');
 
@@ -223,10 +230,12 @@ export const TemplateModal = ({
       {
         data: form.getValues('data'),
         prompt,
+        model,
         reasoningEffort,
+        speed,
         visualValidation,
         ...(blockType ? { blockType } : {}),
-        ...(aiContextIds[scope] ? { contextId: aiContextIds[scope] } : {}),
+        ...(context?.model === model ? { contextId: context.id } : {}),
       },
       session,
     );
@@ -240,9 +249,12 @@ export const TemplateModal = ({
       shouldDirty: true,
       shouldValidate: true,
     });
-    setAiContextIds((current) => ({
+    setAiContexts((current) => ({
       ...current,
-      [scope]: response.contextId,
+      [scope]: {
+        id: response.contextId,
+        model,
+      },
     }));
   };
 
@@ -355,11 +367,19 @@ export const TemplateModal = ({
                     successMessage="Template updated."
                     ariaLabel="Complete template AI instructions"
                     placeholder="Describe what you want AI to change across the template…"
-                    onSubmit={(prompt, reasoningEffort, visualValidation) =>
+                    onSubmit={(
+                      prompt,
+                      model,
+                      reasoningEffort,
+                      visualValidation,
+                      speed,
+                    ) =>
                       editTemplateWithAi(
                         prompt,
+                        model,
                         reasoningEffort,
                         visualValidation,
+                        speed,
                       )
                     }
                   />
@@ -388,13 +408,17 @@ export const TemplateModal = ({
                           aiStatus={aiEditRequest.status}
                           onAiEdit={(
                             prompt,
+                            model,
                             reasoningEffort,
                             visualValidation,
+                            speed,
                           ) =>
                             editTemplateWithAi(
                               prompt,
+                              model,
                               reasoningEffort,
                               visualValidation,
+                              speed,
                               block.type,
                             )
                           }
@@ -516,8 +540,10 @@ const SortableTemplateBlock = ({
   aiStatus: RequestStatus;
   onAiEdit: (
     prompt: string,
+    model: string,
     reasoningEffort: TemplateAiReasoningEffort,
     visualValidation: boolean,
+    speed: boolean,
   ) => Promise<void>;
 }) => {
   const [expanded, setExpanded] = useState(false);

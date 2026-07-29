@@ -1,10 +1,21 @@
-import { ChevronDownIcon, GaugeIcon, ImageIcon, SendIcon } from 'lucide-react';
-import { useState } from 'react';
+import {
+  BotIcon,
+  ChevronDownIcon,
+  GaugeIcon,
+  ImageIcon,
+  SendIcon,
+  ZapIcon,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import {
   type TemplateAiReasoningEffort,
   TemplateAiReasoningEffortSchema,
 } from 'platform/common-base';
-import { AI_REASONING_EFFORT_OPTIONS } from '../../constants';
+import {
+  AI_REASONING_EFFORT_OPTIONS,
+  REQUEST_SUCCESS_VISIBILITY_MS,
+} from '../../constants';
+import { clientEnvironment } from '../../env/client.env';
 import { type RequestStatus } from '../../hooks/request.hook';
 import { getErrorMessage } from '../../utils/request.utils';
 import { cn } from '../shadcn/lib/utils';
@@ -18,6 +29,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../shadcn/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../shadcn/ui/select';
 import { Textarea } from '../shadcn/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../shadcn/ui/tooltip';
 import { RequestStatusNotification } from './request-status-notification.component';
@@ -48,18 +66,48 @@ export const TemplateAiEditor = ({
   ariaLabel: string;
   onSubmit: (
     prompt: string,
+    model: string,
     reasoningEffort: TemplateAiReasoningEffort,
     visualValidation: boolean,
+    speed: boolean,
   ) => Promise<void>;
 }) => {
+  const models = clientEnvironment.openAiModelAllowlist;
   const [prompt, setPrompt] = useState('');
+  const [modelId, setModelId] = useState(models[0]!);
+  const [showNotification, setShowNotification] = useState(false);
   const [reasoningEffort, setReasoningEffort] =
     useState<TemplateAiReasoningEffort>('low');
+  const [speed, setSpeed] = useState(false);
   const [visualValidation, setVisualValidation] = useState(false);
   const editorStatus = active ? status : 'initial';
   const reasoningEffortOption = AI_REASONING_EFFORT_OPTIONS.find(
     ({ value }) => value === reasoningEffort,
   );
+
+  useEffect(() => {
+    setModelId((current) => (models.includes(current) ? current : models[0]!));
+  }, [models]);
+
+  useEffect(() => {
+    if (!active || editorStatus === 'initial') {
+      setShowNotification(false);
+      return;
+    }
+
+    setShowNotification(true);
+
+    if (editorStatus !== 'success') {
+      return;
+    }
+
+    const timeout = window.setTimeout(
+      () => setShowNotification(false),
+      REQUEST_SUCCESS_VISIBILITY_MS,
+    );
+
+    return () => window.clearTimeout(timeout);
+  }, [active, editorStatus]);
 
   return (
     <div className="grid gap-2">
@@ -70,17 +118,36 @@ export const TemplateAiEditor = ({
         placeholder={placeholder}
         onChange={(event) => setPrompt(event.target.value)}
       />
-      <div className="flex items-stretch justify-between gap-3">
-        <RequestStatusNotification
-          status={editorStatus}
-          loadingMessage={loadingMessage}
-          successMessage={successMessage}
-          errorMessage={
-            active && error !== undefined ? getErrorMessage(error) : undefined
-          }
-          className="flex-1"
-        />
-        <div className="flex shrink-0 items-center gap-2">
+      <div className="flex min-w-0 flex-col items-stretch gap-2 md:flex-row md:justify-between md:gap-3">
+        {showNotification ? (
+          <RequestStatusNotification
+            status={editorStatus}
+            loadingMessage={loadingMessage}
+            successMessage={successMessage}
+            errorMessage={
+              active && error !== undefined ? getErrorMessage(error) : undefined
+            }
+            className="min-w-0 max-w-full md:flex-none"
+          />
+        ) : (
+          <Select value={modelId} disabled={busy} onValueChange={setModelId}>
+            <SelectTrigger
+              aria-label="AI model"
+              className="h-auto min-w-0 max-w-full justify-start md:flex-none"
+            >
+              <BotIcon className="text-muted-foreground" />
+              <SelectValue placeholder="Select model" />
+            </SelectTrigger>
+            <SelectContent align="start" className="max-w-[calc(100vw-2rem)]">
+              {models.map((model) => (
+                <SelectItem key={model} value={model}>
+                  {model}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <div className="flex min-w-0 flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -89,7 +156,7 @@ export const TemplateAiEditor = ({
                 disabled={busy}
                 aria-label="AI reasoning effort"
                 title="AI reasoning effort"
-                className="min-w-40 justify-start"
+                className="min-w-36 flex-1 justify-start md:min-w-40 md:flex-none"
               >
                 <GaugeIcon className="text-muted-foreground" />
                 <span className="text-muted-foreground">Effort</span>
@@ -156,12 +223,43 @@ export const TemplateAiEditor = ({
                 : 'Enable PNG visual validation for layout, clipping, and pagination checks. This may take longer.'}
             </TooltipContent>
           </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={busy}
+                aria-label="Toggle AI Speed"
+                aria-pressed={speed}
+                className={cn(
+                  'text-muted-foreground',
+                  speed &&
+                    'border-amber-500/50 bg-amber-500/10 text-amber-600 hover:bg-amber-500/15 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300',
+                )}
+                onClick={() => setSpeed((enabled) => !enabled)}
+              >
+                <ZapIcon />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {speed
+                ? 'Speed is enabled. AI requests use Priority processing, which is billed at a premium.'
+                : 'Enable Speed to use lower-latency Priority processing. This is billed at a premium.'}
+            </TooltipContent>
+          </Tooltip>
           <Button
             type="button"
             className="shrink-0"
-            disabled={!prompt.trim() || busy}
+            disabled={!prompt.trim() || !modelId || busy}
             onClick={() => {
-              void onSubmit(prompt, reasoningEffort, visualValidation)
+              void onSubmit(
+                prompt,
+                modelId,
+                reasoningEffort,
+                visualValidation,
+                speed,
+              )
                 .then(() => setPrompt(''))
                 .catch(() => undefined);
             }}

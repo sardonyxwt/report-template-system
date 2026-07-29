@@ -82,6 +82,7 @@ PORT
 JWT_REFRESH_SECRET
 JWT_SECRET
 OPENAI_API_KEY
+OPENAI_MODEL_ALLOWLIST
 ```
 
 Optional server values supported by the schema include:
@@ -90,7 +91,6 @@ Optional server values supported by the schema include:
 LOGGER_LEVEL
 JWT_SECRET_EXPIRES
 JWT_REFRESH_SECRET_EXPIRES
-OPENAI_MODEL
 OPENAI_TIMEOUT_MS
 ```
 
@@ -114,22 +114,70 @@ the server-side root `.env` file:
 
 ```dotenv
 OPENAI_API_KEY=<your-project-api-key>
-OPENAI_MODEL=gpt-5.6-luna
+OPENAI_MODEL_ALLOWLIST=gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-mini
+VITE_OPENAI_MODEL_ALLOWLIST=gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-mini
 OPENAI_TIMEOUT_MS=120000
 ```
 
-`OPENAI_API_KEY` is required for the server to start. `OPENAI_MODEL` defaults to
-`gpt-5.6-luna`, and `OPENAI_TIMEOUT_MS` defaults to `120000`. The official
+`OPENAI_API_KEY` and `OPENAI_MODEL_ALLOWLIST` are required for the server to
+start. `OPENAI_MODEL_ALLOWLIST` is an ordered, comma-separated list of OpenAI
+model IDs and must not contain duplicates. The server uses it to reject model
+IDs that are not explicitly allowed.
+`OPENAI_TIMEOUT_MS` defaults to `120000`. The official
 [OpenAI quickstart](https://developers.openai.com/api/docs/quickstart#create-and-export-an-api-key)
 also documents creating and exporting API keys.
 
 Never commit the key, expose it through a `VITE_*` variable, or send it to the
 browser. The React client calls the authenticated server endpoint, and only the
 server communicates with OpenAI. The key must belong to an OpenAI API project
-that can use the configured model; it is separate from browser or ChatGPT
-authentication. If `OPENAI_MODEL` is overridden, the selected model must
-support the Responses API, function calling, structured outputs, and image
-inputs used by this feature.
+that can use the selected model; it is separate from browser or ChatGPT
+authentication.
+
+The browser builds the model selector directly from
+`VITE_OPENAI_MODEL_ALLOWLIST`. It displays and submits each entry as an OpenAI
+model ID and selects the first entry by default. This client variable is public
+and must contain model IDs only, never credentials.
+
+The client and server variables are intentionally independent. Keep their
+values aligned so every model shown by the client is also accepted by the
+server. Their order may differ, but the order of `VITE_OPENAI_MODEL_ALLOWLIST`
+controls the selector and its default. Restart the server after changing
+`OPENAI_MODEL_ALLOWLIST`; restart or rebuild the client after changing
+`VITE_OPENAI_MODEL_ALLOWLIST`.
+
+#### Required OpenAI API key permissions
+
+Create the key in the same OpenAI API project that will be billed for template
+editing. When creating a restricted project API key, grant these permissions:
+
+| Permission           | Required API operation                                                                                 | Used for                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| **Responses: Write** | [`POST /v1/responses`](https://developers.openai.com/api/reference/resources/responses/methods/create) | Running AI template edits, structured output, reasoning, and image-based visual validation |
+
+No other OpenAI API permissions are required by the current template editor.
+The key must also have access to the models that users are expected to select,
+and the OpenAI API project must have billing and usage limits configured.
+
+Use this setup checklist when creating or rotating the key:
+
+1. Create a **project API key**, not a browser or ChatGPT credential.
+2. Select **Restricted** permissions.
+3. Enable **Write** for Responses.
+4. Store the key as `OPENAI_API_KEY` in the server-side root `.env`.
+5. Set `OPENAI_MODEL_ALLOWLIST` to the model IDs the server may execute.
+6. Set `VITE_OPENAI_MODEL_ALLOWLIST` to the ordered model IDs shown in the
+   client.
+7. Restart the server and client after replacing the key or either allowlist.
+8. Open the template editor and confirm that the expected default is selected.
+
+The current implementation does not call the Models API, so the key does not
+need **Models: Read** (`api.model.read`). The Responses API remains
+authoritative for whether a selected model supports the structured output,
+reasoning, tools, and image inputs used by template editing.
+
+The editor's Speed toggle sends AI requests with the Responses API
+`service_tier=priority`; with Speed disabled it explicitly uses the standard
+`default` tier. Priority processing has lower latency and premium API pricing.
 
 AI-assisted editing sends the current template HTML, the selected block type,
 the user's editing prompt, and synthetic `REPORT_DATA_EXAMPLE` fixture data to
@@ -155,6 +203,7 @@ The browser client reads the root `.env` file and validates:
 
 ```text
 VITE_API_URL
+VITE_OPENAI_MODEL_ALLOWLIST
 ```
 
 Optional client ports default to `4201` for the development server and `4301`
@@ -171,6 +220,7 @@ For local OAuth, the server and client origins must match the browser URLs:
 CORS_ORIGIN=http://localhost:4201
 GOOGLE_REDIRECT_URL=http://localhost:4201/oauth/google
 VITE_API_URL=http://localhost:60000
+VITE_OPENAI_MODEL_ALLOWLIST=gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.4-mini
 ```
 
 The same callback URL must be registered in the Google OAuth client.
@@ -184,6 +234,7 @@ HOST=localhost
 PORT=60001
 DATABASE_URL=postgresql://<user>:<password>@localhost:<port>/<test-database>
 OPENAI_API_KEY=test-placeholder
+OPENAI_MODEL_ALLOWLIST=test-model-standard,test-model-fast
 ```
 
 The test configuration is loaded after `.env` and `.env.local`, so these values
@@ -208,7 +259,8 @@ npm install
 ```
 
 2. Create or update the root `.env` file with local development values,
-   including `OPENAI_API_KEY`.
+   including `OPENAI_API_KEY`, `OPENAI_MODEL_ALLOWLIST`, and
+   `VITE_OPENAI_MODEL_ALLOWLIST`.
 
 3. Start PostgreSQL:
 

@@ -1,4 +1,5 @@
 import { ManagerResponse, UserResponse } from 'platform/common-base';
+import { OpenAiService } from 'platform/common-server';
 import { TemplateAiEditorService } from '../../src/future/template/template-ai-editor.service';
 import {
   AuthContext,
@@ -8,6 +9,7 @@ import {
 import { createAuthHelper } from './helper/auth.helper';
 import { createPrismaHelper } from './helper/prisma.helper';
 import { createUserHelper } from './helper/user.helper';
+import { OpenAiServiceMock } from './mock/open-ai.service.mock';
 import { TemplateAiEditorServiceMock } from './mock/template-ai-editor.service.mock';
 
 export const withAppContext = (postSetup?: PostSetupTestModule) => {
@@ -20,8 +22,11 @@ export const withAppContext = (postSetup?: PostSetupTestModule) => {
   beforeEach(async () => {
     await appModule.setup((module) => {
       module
+        .overrideProvider(OpenAiService)
+        .useClass(OpenAiServiceMock)
         .overrideProvider(TemplateAiEditorService)
         .useClass(TemplateAiEditorServiceMock);
+
       return postSetup?.(module);
     });
     await prismaHelper.cleanup();

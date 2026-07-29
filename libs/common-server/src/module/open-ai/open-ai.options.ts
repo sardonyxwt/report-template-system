@@ -10,7 +10,7 @@ export const OPEN_AI_MODULE_OPTIONS = Symbol('OPEN_AI_MODULE_OPTIONS');
  */
 export type OpenAiModuleOptions = {
   apiKey: string;
-  model: string;
+  modelAllowlist: string[];
   timeoutMs?: number;
 };
 

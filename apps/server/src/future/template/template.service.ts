@@ -15,6 +15,7 @@ import {
   TemplateUpdateRequest,
 } from 'platform/common-base';
 import {
+  OpenAiService,
   PrismaService,
   ReportHtmlService,
   resolveEventStreamErrorMessage,
@@ -37,6 +38,8 @@ export class TemplateService {
     private readonly session: SessionService,
     @Inject(ReportHtmlService)
     private readonly reportHtmlService: ReportHtmlService,
+    @Inject(OpenAiService)
+    private readonly openAi: OpenAiService,
     @Inject(TemplateAiEditorService)
     private readonly templateAiEditorService: TemplateAiEditorService,
   ) {}
@@ -130,12 +133,18 @@ export class TemplateService {
   /**
    * Returns an authorized stream of AI edit progress and result events.
    */
-  aiEditEvents(
+  async *aiEditEvents(
     data: TemplateAiEditRequest,
   ): AsyncGenerator<TemplateAiEditEvent> {
     this.session.abilityGuard('templates', 'aiEdit');
 
-    return this.streamAiEditEvents(data);
+    if (!this.openAi.isModelAllowed(data.model)) {
+      throw new BadRequestException(
+        'The selected AI model is not available for template editing.',
+      );
+    }
+
+    yield* this.streamAiEditEvents(data);
   }
 
   /**

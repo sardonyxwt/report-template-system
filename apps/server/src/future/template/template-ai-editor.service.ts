@@ -252,6 +252,7 @@ export class TemplateAiEditorService {
       : this.aiTools.filter(({ name }) => !name.startsWith('capture_'));
 
     const events = this.openAi.run<z.infer<typeof AiResultSchema>>({
+      model: request.model,
       instructions: this.createInstructions(
         request.blockType,
         request.visualValidation,
@@ -262,6 +263,7 @@ export class TemplateAiEditorService {
       tool_choice: 'auto',
       parallel_tool_calls: true,
       store: true,
+      service_tier: request.speed ? 'priority' : 'default',
       reasoning: {
         effort: request.reasoningEffort,
       },

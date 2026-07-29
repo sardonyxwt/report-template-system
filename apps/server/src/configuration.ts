@@ -30,8 +30,8 @@ export const ConfigurationSchema = z.object({
   GOOGLE_REDIRECT_URL: aliases.preprocessString(aliases.notEmptyString),
 
   OPENAI_API_KEY: aliases.preprocessString(aliases.notEmptyString),
-  OPENAI_MODEL: aliases.preprocessString(
-    aliases.notEmptyString.default('gpt-5.6-luna'),
+  OPENAI_MODEL_ALLOWLIST: aliases.preprocessStringArray(
+    aliases.notEmptyStringArray,
   ),
   OPENAI_TIMEOUT_MS: aliases.preprocessNumber(
     z.number().int().positive().default(120_000),
