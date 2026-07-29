@@ -95,3 +95,52 @@ button,
 [role='button'] {
   cursor: pointer;
 }
+
+@keyframes ai-gradient-border-flow {
+  0%,
+  100% {
+    background-position:
+      0 0,
+      0% 50%;
+  }
+
+  50% {
+    background-position:
+      0 0,
+      100% 50%;
+  }
+}
+
+.ai-gradient-border {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--background), var(--background)) padding-box,
+    linear-gradient(
+        110deg,
+        #0a84ff 0%,
+        #64d2ff 16%,
+        #5e5ce6 32%,
+        #bf5af2 48%,
+        #ff375f 65%,
+        #ff9f0a 82%,
+        #30d158 92%,
+        #0a84ff 100%
+      )
+      border-box;
+  background-size:
+    100% 100%,
+    300% 100%;
+  box-shadow:
+    0 0 12px color-mix(in oklch, #5e5ce6 18%, transparent),
+    0 0 20px color-mix(in oklch, #64d2ff 10%, transparent);
+  animation: ai-gradient-border-flow 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-gradient-border {
+    background-position:
+      0 0,
+      50% 50%;
+    animation: none;
+  }
+}

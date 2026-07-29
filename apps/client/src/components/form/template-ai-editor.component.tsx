@@ -24,13 +24,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../shadcn/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../shadcn/ui/select';
 import { Textarea } from '../shadcn/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../shadcn/ui/tooltip';
 
@@ -85,26 +78,37 @@ export const TemplateAiEditor = ({
         onChange={(event) => setPrompt(event.target.value)}
       />
       <div className="flex min-w-0 flex-col items-stretch gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
-        <Select
-          value={modelId}
-          disabled={busy || disabled}
-          onValueChange={setModelId}
-        >
-          <SelectTrigger
-            aria-label="AI model"
-            className="h-auto min-w-0 max-w-full justify-start md:w-auto md:max-w-xs md:flex-none"
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || disabled}
+              aria-label="AI model"
+              title="AI model"
+              className="min-w-0 max-w-full justify-start md:w-auto md:max-w-xs md:flex-none"
+            >
+              <BotIcon className="text-muted-foreground" />
+              <span className="text-muted-foreground">Model</span>
+              <span className="min-w-0 truncate">{modelId}</span>
+              <ChevronDownIcon className="ml-auto text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="max-w-[calc(100vw-2rem)]"
           >
-            <BotIcon className="text-muted-foreground" />
-            <SelectValue placeholder="Select model" />
-          </SelectTrigger>
-          <SelectContent align="start" className="max-w-[calc(100vw-2rem)]">
-            {models.map((model) => (
-              <SelectItem key={model} value={model}>
-                {model}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <DropdownMenuLabel>AI model</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioGroup value={modelId} onValueChange={setModelId}>
+              {models.map((model) => (
+                <DropdownMenuRadioItem key={model} value={model}>
+                  <span className="truncate">{model}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <div className="flex min-w-0 flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -114,7 +118,7 @@ export const TemplateAiEditor = ({
                 disabled={busy || disabled}
                 aria-label="AI reasoning effort"
                 title="AI reasoning effort"
-                className="w-auto shrink-0 justify-start"
+                className="min-w-36 flex-1 justify-start md:flex-none"
               >
                 <GaugeIcon className="text-muted-foreground" />
                 <span className="text-muted-foreground">Effort</span>

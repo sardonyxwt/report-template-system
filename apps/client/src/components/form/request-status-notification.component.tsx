@@ -66,32 +66,28 @@ export const RequestStatusNotification = ({
       aria-live={status === 'error' ? 'assertive' : 'polite'}
       aria-atomic="true"
       className={cn(
-        'grid min-w-0 transition-[grid-template-rows,opacity] duration-300',
-        visible && message
-          ? 'grid-rows-[1fr] opacity-100'
-          : 'grid-rows-[0fr] opacity-0',
+        'min-w-0 transition-opacity duration-500 ease-out',
+        visible && message ? 'opacity-100' : 'pointer-events-none opacity-0',
         className,
       )}
     >
-      <div className="h-full min-h-0 overflow-hidden">
-        <div
+      <div
+        className={cn(
+          'flex h-full items-center gap-2 rounded-md border px-2 py-1 text-sm',
+          status === 'loading' && 'ai-gradient-border text-muted-foreground',
+          status === 'success' &&
+            'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400',
+          status === 'error' &&
+            'border-destructive/30 bg-destructive/5 text-destructive',
+        )}
+      >
+        <Icon
           className={cn(
-            'flex h-full items-center gap-2 rounded-md border px-2 py-1 text-sm',
-            status === 'loading' && 'text-muted-foreground',
-            status === 'success' &&
-              'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400',
-            status === 'error' &&
-              'border-destructive/30 bg-destructive/5 text-destructive',
+            'mt-0.5 size-4 shrink-0',
+            status === 'loading' && 'animate-spin',
           )}
-        >
-          <Icon
-            className={cn(
-              'mt-0.5 size-4 shrink-0',
-              status === 'loading' && 'animate-spin',
-            )}
-          />
-          <span>{message}</span>
-        </div>
+        />
+        <span>{message}</span>
       </div>
     </div>
   );
