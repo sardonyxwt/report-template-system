@@ -3,7 +3,11 @@ import { ID_PATH_PARAM_NAME } from '../constants';
 import { ActionNumberIdParamsSchema } from '../data/common/common.data';
 import {
   TemplateAggregateRequestSchema,
+  TemplateAiEditEventSchema,
+  TemplateAiEditRequestSchema,
   TemplateCreateRequestSchema,
+  TemplatePreviewRequestSchema,
+  TemplatePreviewResponseSchema,
   TemplateResponseSchema,
   TemplatesResponseSchema,
   TemplateUpdateRequestSchema,
@@ -28,6 +32,25 @@ export const createTemplateEndpoints = (base = '') =>
       path: `${base}/${root}`,
       body: TemplateUpdateRequestSchema as ZodType,
       response: TemplateResponseSchema as ZodType,
+      guards: ['auth'],
+    },
+    preview: {
+      method: HttpMethod.Post,
+      path: `${base}/${root}/preview`,
+      headers: {
+        'Cache-Control': 'no-store',
+        'Content-Type': 'text/html; charset=utf-8',
+      },
+      body: TemplatePreviewRequestSchema as ZodType,
+      response: TemplatePreviewResponseSchema as ZodType,
+      guards: ['auth'],
+    },
+    aiEditStream: {
+      method: HttpMethod.Post,
+      events: true,
+      path: `${base}/${root}/ai-edit/stream`,
+      body: TemplateAiEditRequestSchema as ZodType,
+      response: TemplateAiEditEventSchema as ZodType,
       guards: ['auth'],
     },
     delete: {

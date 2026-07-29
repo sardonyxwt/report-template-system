@@ -3,8 +3,15 @@ import { BaseExceptionFilter } from '@nestjs/core';
 import { Response } from 'express';
 import { Prisma } from 'platform/prisma/client';
 
+/**
+ * Maps known Prisma request failures to stable HTTP error responses.
+ */
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaClientExceptionFilter extends BaseExceptionFilter {
+  /**
+   * Converts Prisma error codes into bad-request, not-found, or generic
+   * database responses without exposing database details.
+   */
   override catch(
     exception: Prisma.PrismaClientKnownRequestError,
     host: ArgumentsHost,

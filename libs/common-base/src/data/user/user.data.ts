@@ -29,11 +29,14 @@ export const UserSaveSchema = UserSchema.omit({
 
 export const UserCreateRequestSchema = UserSaveSchema.omit({
   id: true,
+  role: true,
 }).meta({
   name: 'UserCreateRequestSchema',
 });
 
-export const UserUpdateRequestSchema = z.object(UserSaveSchema.shape).meta({
+export const UserUpdateRequestSchema = UserSaveSchema.omit({
+  role: true,
+}).meta({
   name: 'UserUpdateRequestSchema',
 });
 

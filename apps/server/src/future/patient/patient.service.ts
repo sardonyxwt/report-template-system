@@ -6,8 +6,11 @@ import {
   PatientsResponse,
 } from 'platform/common-base';
 import { PrismaService, SessionService } from 'platform/common-server';
-import { Prisma } from 'platform/prisma';
+import { includePatient, Prisma } from 'platform/prisma';
 
+/**
+ * Manages clinic patient assignments and manager-scoped access.
+ */
 @Injectable()
 export class PatientService {
   constructor(
@@ -19,6 +22,9 @@ export class PatientService {
     private readonly session: SessionService,
   ) {}
 
+  /**
+   * Assigns an eligible existing user to a clinic as a patient.
+   */
   async create(data: PatientCreateRequest): Promise<PatientResponse> {
     return this.prisma.run(async (tx) => {
       const clinic = await tx.clinic.findFirstOrThrow({
@@ -49,9 +55,7 @@ export class PatientService {
           clinicId: data.clinicId,
           userId: user.id,
         },
-        include: {
-          user: true,
-        },
+        include: includePatient,
       });
 
       this.logger.log('Patient created', PatientService.name, {
@@ -63,6 +67,39 @@ export class PatientService {
     });
   }
 
+  /**
+   * Removes a patient assignment after checking clinic-manager access.
+   */
+  async delete(userId: number): Promise<PatientResponse> {
+    this.logger.log('Delete patient requested', PatientService.name, {
+      userId,
+    });
+
+    const patient = await this.prisma.tx.patient.findFirstOrThrow({
+      where: { userId },
+      select: { clinic: { select: { managerId: true } } },
+    });
+
+    this.session.abilityGuard('patients', 'delete', {
+      managerId: patient.clinic.managerId,
+    });
+
+    const deletedPatient = await this.prisma.tx.patient.delete({
+      where: { userId },
+      include: includePatient,
+    });
+
+    this.logger.log('Patient deleted', PatientService.name, {
+      userId: deletedPatient.userId,
+      clinicId: deletedPatient.clinicId,
+    });
+
+    return deletedPatient;
+  }
+
+  /**
+   * Finds patients and authorizes every returned row.
+   */
   async findMany({
     where,
     orderBy,
@@ -79,14 +116,7 @@ export class PatientService {
             cursor: cursor as Prisma.PatientWhereUniqueInput | undefined,
             take,
             skip,
-            include: {
-              user: true,
-              clinic: {
-                select: {
-                  managerId: true,
-                },
-              },
-            },
+            include: includePatient,
           }),
           tx.patient.count({ where }),
         ] as const,

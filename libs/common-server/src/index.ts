@@ -1,4 +1,11 @@
 import './extensions';
+export * from './utils/crypto.utils';
+export * from './utils/events.utils';
 export * from './module/auth/auth.module';
 export * from './module/common/common.module';
+export * from './module/open-ai/open-ai.module';
 export * from './module/prisma/prisma.module';
+export * from './module/report-rendering/report-html.service';
+export * from './module/report-rendering/report-image.service';
+export * from './module/report-rendering/report-pdf.service';
+export * from './module/report-rendering/report-rendering.module';

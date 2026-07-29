@@ -9,7 +9,6 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from '../shadcn/ui/breadcrumb';
-import { Separator } from '../shadcn/ui/separator';
 import {
   SidebarInset,
   SidebarProvider,
@@ -27,12 +26,11 @@ export function AppLayout() {
     ) ?? fallbackNavigationItem;
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh min-h-0 overflow-hidden">
       <AppSidebar />
-      <SidebarInset className="min-w-0">
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-background/90 px-4 backdrop-blur">
+      <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
+        <header className="z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/90 px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4!" />
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
@@ -41,8 +39,10 @@ export function AppLayout() {
             </BreadcrumbList>
           </Breadcrumb>
         </header>
-        <main className="flex min-h-0 flex-1 flex-col p-4 md:p-6">
-          <Outlet />
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="flex min-h-full flex-col p-4 md:p-6">
+            <Outlet />
+          </div>
         </main>
       </SidebarInset>
     </SidebarProvider>

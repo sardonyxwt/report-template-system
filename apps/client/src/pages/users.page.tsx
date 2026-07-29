@@ -1,10 +1,12 @@
 import { type ColumnDef } from '@tanstack/react-table';
 import { PencilIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { type UserResponse } from 'platform/common-base';
-import { useMemo } from 'react';
+import { searchQueryOrUndef } from 'platform/prisma';
 import { api } from '../api/client.api';
 import { Can } from '../components/can.component';
 import { UserModal } from '../components/modal/user.modal';
+import { ResourceSearchInput } from '../components/resource-filters.component';
 import { ResourcePage } from '../components/resource-page.component';
 import { Badge } from '../components/shadcn/ui/badge';
 import { Button } from '../components/shadcn/ui/button';
@@ -12,9 +14,9 @@ import { useAccessControl } from '../providers/access-control.provider';
 
 export const UsersPage = () => {
   const access = useAccessControl();
+  const [search, setSearch] = useState('');
   const columns = useMemo<ColumnDef<UserResponse>[]>(
     () => [
-      { accessorKey: 'id', header: 'ID' },
       {
         accessorKey: 'fullName',
         header: 'Name',
@@ -40,13 +42,32 @@ export const UsersPage = () => {
       description="Manage platform identities and public account information."
       itemName="user"
       columns={columns}
-      load={async () => {
-        const response = await api.user.findMany({
-          where: {},
+      load={(pagination) =>
+        api.user.findMany({
+          where: search
+            ? {
+                OR: [
+                  {
+                    fullName: searchQueryOrUndef(search),
+                  },
+                  {
+                    email: searchQueryOrUndef(search),
+                  },
+                ],
+              }
+            : {},
           orderBy: { email: 'asc' },
-        });
-        return response.items;
-      }}
+          ...pagination,
+        })
+      }
+      loadKey={search}
+      filters={
+        <ResourceSearchInput
+          value={search}
+          placeholder="Search users by name or email"
+          onChange={setSearch}
+        />
+      }
       getRowId={(user) => String(user.id)}
       createAction={
         access.users.create()
@@ -61,7 +82,7 @@ export const UsersPage = () => {
             user={user}
             onSaved={reload}
             trigger={
-              <Button variant="ghost" size="icon" aria-label="Edit user">
+              <Button variant="ghost" size="icon-sm" aria-label="Edit user">
                 <PencilIcon />
               </Button>
             }

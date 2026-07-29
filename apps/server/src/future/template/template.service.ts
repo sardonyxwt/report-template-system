@@ -1,14 +1,31 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import {
   TemplateAggregateRequest,
+  TemplateAiEditEvent,
+  TemplateAiEditRequest,
   TemplateCreateRequest,
+  TemplatePreviewRequest,
   TemplateResponse,
   TemplatesResponse,
   TemplateUpdateRequest,
 } from 'platform/common-base';
-import { PrismaService, SessionService } from 'platform/common-server';
-import { Prisma } from 'platform/prisma';
+import {
+  PrismaService,
+  ReportHtmlService,
+  resolveEventStreamErrorMessage,
+  SessionService,
+} from 'platform/common-server';
+import { includeTemplate, Prisma, REPORT_DATA_EXAMPLE } from 'platform/prisma';
+import { TemplateAiEditorService } from './template-ai-editor.service';
 
+/**
+ * Implements report template persistence, preview, and AI editing operations.
+ */
 @Injectable()
 export class TemplateService {
   constructor(
@@ -18,8 +35,15 @@ export class TemplateService {
     private readonly prisma: PrismaService,
     @Inject(SessionService)
     private readonly session: SessionService,
+    @Inject(ReportHtmlService)
+    private readonly reportHtmlService: ReportHtmlService,
+    @Inject(TemplateAiEditorService)
+    private readonly templateAiEditorService: TemplateAiEditorService,
   ) {}
 
+  /**
+   * Creates a template after checking access to its clinic.
+   */
   async create(data: TemplateCreateRequest): Promise<TemplateResponse> {
     const clinic = await this.prisma.tx.clinic.findFirstOrThrow({
       where: { id: data.clinicId },
@@ -29,7 +53,10 @@ export class TemplateService {
       managerId: clinic.managerId,
     });
 
-    const template = await this.prisma.tx.template.create({ data });
+    const template = await this.prisma.tx.template.create({
+      data,
+      include: includeTemplate,
+    });
 
     this.logger.log('Template created', TemplateService.name, {
       templateId: template.id,
@@ -39,6 +66,9 @@ export class TemplateService {
     return template;
   }
 
+  /**
+   * Updates a template after enforcing clinic-manager access.
+   */
   async update(data: TemplateUpdateRequest): Promise<TemplateResponse> {
     this.logger.log('Update template requested', TemplateService.name, {
       templateId: data.id,
@@ -60,6 +90,7 @@ export class TemplateService {
     const updatedTemplate = await this.prisma.tx.template.update({
       where: { id: data.id },
       data,
+      include: includeTemplate,
     });
 
     this.logger.log('Template updated', TemplateService.name, {
@@ -69,6 +100,37 @@ export class TemplateService {
     return updatedTemplate;
   }
 
+  /**
+   * Renders unsaved template data against the synthetic report fixture.
+   *
+   * @throws {BadRequestException} When Handlebars cannot render the markup.
+   */
+  preview({ data }: TemplatePreviewRequest): string {
+    this.session.abilityGuard('templates', 'preview');
+
+    try {
+      return this.reportHtmlService.render(data, REPORT_DATA_EXAMPLE);
+    } catch {
+      throw new BadRequestException(
+        'Template markup could not be rendered with preview data.',
+      );
+    }
+  }
+
+  /**
+   * Returns an authorized stream of AI edit progress and result events.
+   */
+  aiEditEvents(
+    data: TemplateAiEditRequest,
+  ): AsyncGenerator<TemplateAiEditEvent> {
+    this.session.abilityGuard('templates', 'aiEdit');
+
+    return this.streamAiEditEvents(data);
+  }
+
+  /**
+   * Deletes a template after checking access through its clinic.
+   */
   async delete(id: number): Promise<TemplateResponse> {
     this.logger.log('Delete template requested', TemplateService.name, {
       templateId: id,
@@ -85,6 +147,7 @@ export class TemplateService {
 
     const deletedTemplate = await this.prisma.tx.template.delete({
       where: { id },
+      include: includeTemplate,
     });
 
     this.logger.log('Template deleted', TemplateService.name, {
@@ -94,6 +157,9 @@ export class TemplateService {
     return deletedTemplate;
   }
 
+  /**
+   * Finds templates and authorizes every returned row.
+   */
   async findMany({
     where,
     orderBy,
@@ -110,13 +176,7 @@ export class TemplateService {
             cursor: cursor as Prisma.TemplateWhereUniqueInput | undefined,
             take,
             skip,
-            include: {
-              clinic: {
-                select: {
-                  managerId: true,
-                },
-              },
-            },
+            include: includeTemplate,
           }),
           tx.template.count({ where }),
         ] as const,
@@ -133,5 +193,20 @@ export class TemplateService {
       total,
       perPage: take ?? total,
     };
+  }
+
+  private async *streamAiEditEvents(
+    data: TemplateAiEditRequest,
+  ): AsyncGenerator<TemplateAiEditEvent> {
+    try {
+      yield* this.templateAiEditorService.editEvents(data);
+    } catch (error) {
+      yield {
+        type: 'error',
+        data: {
+          message: resolveEventStreamErrorMessage(error),
+        },
+      };
+    }
   }
 }

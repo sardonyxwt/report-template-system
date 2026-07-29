@@ -1,32 +1,22 @@
 import { z } from 'zod';
-import { ClinicReportSchema } from 'platform/prisma';
+import { ClinicSimpleSchema } from '../clinic/clinic-simple.data';
 import {
   ArgsAggregateRequestSchema,
   createManyResponseSchema,
 } from '../common/common.data';
-
-const validateClinicReport = (
-  { data }: z.infer<typeof ClinicReportSchema>,
-  context: z.RefinementCtx,
-) => {
-  const blockTypes = new Set<string>();
-
-  data.blocks.forEach((block, index) => {
-    if (blockTypes.has(block.type)) {
-      context.addIssue({
-        code: 'custom',
-        message: `Duplicate report block type: ${block.type}`,
-        path: ['data', 'blocks', index, 'type'],
-      });
-    }
-
-    blockTypes.add(block.type);
-  });
-};
+import { PatientSimpleSchema } from '../patient/patient-simple.data';
+import { UserSimpleSchema } from '../user/user-simple.data';
+import { ClinicReportSimpleSchema } from './clinic-report-simple.data';
 
 export const ClinicReportResponseSchema = z
-  .object(ClinicReportSchema.shape)
-  .superRefine(validateClinicReport)
+  .object({
+    ...ClinicReportSimpleSchema.shape,
+    clinic: ClinicSimpleSchema,
+    patient: z.object({
+      ...PatientSimpleSchema.shape,
+      user: UserSimpleSchema,
+    }),
+  })
   .meta({ name: 'ClinicReportResponseSchema' });
 
 export const ClinicReportsResponseSchema = createManyResponseSchema(
@@ -35,8 +25,10 @@ export const ClinicReportsResponseSchema = createManyResponseSchema(
 
 export const ClinicReportCreateRequestSchema = z
   .object({
-    patientId: ClinicReportSchema.shape.patientId,
-    clinicId: ClinicReportSchema.shape.clinicId,
+    patientId:
+      ClinicReportSimpleSchema.shape.patientId.positive('Select a patient.'),
+    clinicId:
+      ClinicReportSimpleSchema.shape.clinicId.positive('Select a clinic.'),
   })
   .meta({ name: 'ClinicReportCreateRequestSchema' });
 

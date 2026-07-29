@@ -1,15 +1,17 @@
 import { z } from 'zod';
-import { PatientReportSchema } from 'platform/prisma';
 import { ClinicReportResponseSchema } from '../clinic-report/clinic-report.data';
 import {
   ArgsAggregateRequestSchema,
   createManyResponseSchema,
 } from '../common/common.data';
+import { TemplateSimpleSchema } from '../template/template-simple.data';
+import { PatientReportSimpleSchema } from './patient-report-simple.data';
 
 export const PatientReportResponseSchema = z
   .object({
-    ...PatientReportSchema.shape,
+    ...PatientReportSimpleSchema.shape,
     report: ClinicReportResponseSchema,
+    template: TemplateSimpleSchema,
   })
   .meta({ name: 'PatientReportResponseSchema' });
 
@@ -18,7 +20,13 @@ export const PatientReportsResponseSchema = createManyResponseSchema(
 ).meta({ name: 'PatientReportsResponseSchema' });
 
 export const PatientReportCreateRequestSchema = z
-  .object(PatientReportSchema.shape)
+  .object({
+    reportId: PatientReportSimpleSchema.shape.reportId.positive(
+      'Select a clinic report.',
+    ),
+    templateId:
+      PatientReportSimpleSchema.shape.templateId.positive('Select a template.'),
+  })
   .meta({ name: 'PatientReportCreateRequestSchema' });
 
 export const PatientReportAggregateRequestSchema = ArgsAggregateRequestSchema;

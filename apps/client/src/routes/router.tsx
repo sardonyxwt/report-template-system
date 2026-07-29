@@ -1,14 +1,15 @@
 import { type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from '../components/layout/app-layout.component';
+import { ClinicReportDetailPage } from '../pages/clinic-report-detail/clinic-report-detail.page';
 import { ClinicReportsPage } from '../pages/clinic-reports.page';
 import { ClinicsPage } from '../pages/clinics.page';
 import { HomePage } from '../pages/home.page';
 import { ManagersPage } from '../pages/managers.page';
 import { OauthCallbackPage } from '../pages/oauth-callback/oauth-callback.page';
-import { PatientReportDetailPage } from '../pages/patient-report-detail/patient-report-detail.page';
 import { PatientReportsPage } from '../pages/patient-reports.page';
 import { PatientsPage } from '../pages/patients.page';
+import { RouteErrorPage } from '../pages/route-error.page';
 import { TemplatesPage } from '../pages/templates.page';
 import { UsersPage } from '../pages/users.page';
 import { type AppSection, appSections, routePaths, routes } from '../routes';
@@ -30,13 +31,16 @@ export const router = createBrowserRouter([
   {
     path: routePaths.home,
     element: <HomePage />,
+    errorElement: <RouteErrorPage />,
   },
   {
     path: routePaths.oauthGoogle,
     element: <OauthCallbackPage />,
+    errorElement: <RouteErrorPage />,
   },
   {
     element: <AuthenticatedRoute />,
+    errorElement: <RouteErrorPage />,
     children: [
       {
         path: routePaths.app,
@@ -55,10 +59,10 @@ export const router = createBrowserRouter([
             ),
           })),
           {
-            path: routePaths.patientReport,
+            path: routePaths.clinicReport,
             element: (
-              <SectionRoute section="patientReports">
-                <PatientReportDetailPage />
+              <SectionRoute section="clinicReports">
+                <ClinicReportDetailPage />
               </SectionRoute>
             ),
           },
@@ -69,5 +73,6 @@ export const router = createBrowserRouter([
   {
     path: '*',
     element: <Navigate to={routes.home()} replace />,
+    errorElement: <RouteErrorPage />,
   },
 ]);

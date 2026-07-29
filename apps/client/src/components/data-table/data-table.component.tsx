@@ -4,7 +4,6 @@ import {
   type RowSelectionState,
   flexRender,
   getCoreRowModel,
-  getPaginationRowModel,
   useReactTable,
 } from '@tanstack/react-table';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
@@ -27,6 +26,10 @@ export type DataTableProps<Data> = {
   enableRowSelection?: (row: Data) => boolean;
   onSelectionChange?: (rows: Data[]) => void;
   onRowClick?: (row: Data) => void;
+  pageIndex: number;
+  pageSize: number;
+  pageCount: number;
+  onPageChange: (pageIndex: number) => void;
 };
 
 export const DataTable = <Data,>({
@@ -36,6 +39,10 @@ export const DataTable = <Data,>({
   enableRowSelection,
   onSelectionChange,
   onRowClick,
+  pageIndex,
+  pageSize,
+  pageCount,
+  onPageChange,
 }: DataTableProps<Data>) => {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const selectable = !!enableRowSelection;
@@ -48,13 +55,15 @@ export const DataTable = <Data,>({
     data,
     getRowId,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    manualPagination: true,
+    pageCount,
     enableRowSelection: (row) => enableRowSelection?.(row.original) ?? false,
     onRowSelectionChange: setRowSelection,
-    state: { rowSelection },
-    initialState: {
+    state: {
+      rowSelection,
       pagination: {
-        pageSize: 10,
+        pageIndex,
+        pageSize,
       },
     },
   });
@@ -76,8 +85,15 @@ export const DataTable = <Data,>({
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                {headerGroup.headers.map((header, index) => (
+                  <TableHead
+                    key={header.id}
+                    className={getUtilityColumnClassName(
+                      header.column.id,
+                      index,
+                      selectable,
+                    )}
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -94,11 +110,18 @@ export const DataTable = <Data,>({
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() ? 'selected' : undefined}
-                className={onRowClick ? 'cursor-pointer' : undefined}
+                className={onRowClick ? 'h-9 cursor-pointer' : 'h-9'}
                 onClick={() => onRowClick?.(row.original)}
               >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                {row.getVisibleCells().map((cell, index) => (
+                  <TableCell
+                    key={cell.id}
+                    className={`h-9 py-1 ${getUtilityColumnClassName(
+                      cell.column.id,
+                      index,
+                      selectable,
+                    )}`}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
@@ -118,7 +141,7 @@ export const DataTable = <Data,>({
               variant="outline"
               size="sm"
               disabled={!table.getCanPreviousPage()}
-              onClick={() => table.previousPage()}
+              onClick={() => onPageChange(pageIndex - 1)}
             >
               <ChevronLeftIcon />
               Previous
@@ -127,7 +150,7 @@ export const DataTable = <Data,>({
               variant="outline"
               size="sm"
               disabled={!table.getCanNextPage()}
-              onClick={() => table.nextPage()}
+              onClick={() => onPageChange(pageIndex + 1)}
             >
               Next
               <ChevronRightIcon />
@@ -165,6 +188,26 @@ const createSelectionColumn = <Data,>(): ColumnDef<Data> => ({
   enableHiding: false,
   enableSorting: false,
 });
+
+const getUtilityColumnClassName = (
+  columnId: string,
+  columnIndex: number,
+  selectable: boolean,
+) => {
+  if (columnId === 'select') {
+    return 'w-8 min-w-8 max-w-8 pr-0';
+  }
+
+  if (columnId === 'actions' || columnId === 'open') {
+    return 'w-9 min-w-9 max-w-9 px-1';
+  }
+
+  if (selectable && columnIndex === 1) {
+    return 'pl-1';
+  }
+
+  return '';
+};
 
 export const stopRowAction = (event: React.MouseEvent) =>
   event.stopPropagation();

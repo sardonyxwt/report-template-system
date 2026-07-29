@@ -2,6 +2,9 @@ import { parse } from 'cookie';
 import { signedCookie } from 'cookie-parser';
 import { Request } from 'express';
 
+/**
+ * Express request shape consumed by the shared JWT token extractor.
+ */
 export type SigningRequest = Request & {
   auth?: unknown;
   cookies?: Record<string, string>;

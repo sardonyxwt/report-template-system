@@ -21,7 +21,10 @@ describe('api.user', () => {
         ...endpoints.user.create,
         accessToken: admin.accessToken,
       })
-      .send(userFixtures.user);
+      .send({
+        ...userFixtures.user,
+        role: UserRole.Admin,
+      });
 
     expect(res.status).toBe(HttpStatus.CREATED);
 
@@ -31,6 +34,7 @@ describe('api.user', () => {
     });
 
     expect(!!createdUser).toBeTruthy();
+    expect(createdUser!.role).toBe(UserRole.User);
   });
 
   it('update', async () => {
@@ -47,7 +51,10 @@ describe('api.user', () => {
         ...endpoints.user.update,
         accessToken: admin.accessToken,
       })
-      .send(updateUserRequestDto);
+      .send({
+        ...updateUserRequestDto,
+        role: UserRole.Admin,
+      });
 
     expect(res.status).toBe(HttpStatus.OK);
 
@@ -59,6 +66,7 @@ describe('api.user', () => {
     expect(
       updatedUser!.fullName === updateUserRequestDto.fullName,
     ).toBeTruthy();
+    expect(updatedUser!.role).toBe(UserRole.User);
   });
 
   it('delete', async () => {

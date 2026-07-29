@@ -2,7 +2,9 @@ import { z, ZodType } from 'zod';
 
 export const aliases = {
   json: z.any(),
-  email: z.email().meta({ example: 'example@mail.com' }),
+  email: z
+    .email('Enter a valid email address.')
+    .meta({ example: 'example@mail.com' }),
   numberId: z.number().int().nonnegative(),
   stringId: z.uuid(),
   notEmptyString: z.string().trim().min(1),

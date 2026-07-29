@@ -1,11 +1,13 @@
 import { HttpStatus } from '@nestjs/common';
 import {
+  TemplateAiEditEvent,
   TemplateResponse,
   TemplatesResponse,
   TemplateUpdateRequest,
 } from 'platform/common-base';
 import { endpoints } from '../../../src/endpoints';
 import { withAppContext } from '../../context/app.context';
+import { TemplateAiEditorServiceMock } from '../../context/mock/template-ai-editor.service.mock';
 import { clinicFixtures } from '../../fixture/clinic.fixture';
 import { templateFixtures } from '../../fixture/template.fixture';
 
@@ -87,6 +89,123 @@ describe('api.template', () => {
       .send({ where: { id: templateData.id } });
 
     expect(findManyRes.status).toBe(HttpStatus.OK);
+  });
+
+  it('requires every template block exactly once', async () => {
+    const admin = await macros.createAuthorizedAdmin();
+    const [manager] = await macros.createAuthorizedManager(admin);
+    const clinic = await context.prisma.clinic.create({
+      data: clinicFixtures.clinic(manager.userId),
+    });
+    const request = templateFixtures.template(clinic.id);
+
+    const missingBlockRes = await context
+      .apiCall({
+        ...endpoints.template.create,
+        accessToken: admin.accessToken,
+      })
+      .send({
+        ...request,
+        data: {
+          ...request.data,
+          blocks: request.data.blocks.slice(0, -1),
+        },
+      });
+
+    expect(missingBlockRes.status).toBe(HttpStatus.BAD_REQUEST);
+
+    const duplicateBlockRes = await context
+      .apiCall({
+        ...endpoints.template.create,
+        accessToken: admin.accessToken,
+      })
+      .send({
+        ...request,
+        data: {
+          ...request.data,
+          blocks: [
+            ...request.data.blocks.slice(0, -1),
+            request.data.blocks[0]!,
+          ],
+        },
+      });
+
+    expect(duplicateBlockRes.status).toBe(HttpStatus.BAD_REQUEST);
+  });
+
+  it('allows template preview for admins and managers only', async () => {
+    const admin = await macros.createAuthorizedAdmin();
+    const [, authorizedManager] = await macros.createAuthorizedManager(admin);
+    const user = await macros.createAuthorizedUserWithEmail(
+      'template-preview-user@gmail.com',
+    );
+    const data = templateFixtures.template(1).data;
+
+    for (const accessToken of [
+      admin.accessToken,
+      authorizedManager.accessToken!,
+    ]) {
+      const response = await context
+        .apiCall({
+          ...endpoints.template.preview,
+          accessToken,
+        })
+        .send({ data });
+
+      expect(response.status).toBe(HttpStatus.OK);
+      expect(response.headers['cache-control']).toBe('no-store');
+      expect(response.headers['content-type']).toContain('text/html');
+      expect(response.text).toContain('<!doctype html>');
+      expect(response.text).toContain('data-report-block="cover"');
+    }
+
+    const userResponse = await context
+      .apiCall({
+        ...endpoints.template.preview,
+        accessToken: user.accessToken!,
+      })
+      .send({ data });
+
+    expect(userResponse.status).toBe(HttpStatus.FORBIDDEN);
+  });
+
+  it('streams a global AI edit with the complete reordered template', async () => {
+    const admin = await macros.createAuthorizedAdmin();
+    const [, authorizedManager] = await macros.createAuthorizedManager(admin);
+    const data = templateFixtures.template(1).data;
+
+    const response = await context
+      .apiCall({
+        ...endpoints.template.aiEditStream,
+        accessToken: authorizedManager.accessToken!,
+      })
+      .send({
+        data,
+        prompt: 'Reverse the block order and improve the layout.',
+      });
+    const events = response.text
+      .trim()
+      .split('\n\n')
+      .map((frame) => {
+        const fields = frame.split('\n');
+        const type = fields
+          .find((field) => field.startsWith('event:'))
+          ?.slice('event:'.length)
+          .trim();
+        const eventData = fields
+          .find((field) => field.startsWith('data:'))
+          ?.slice('data:'.length)
+          .trim();
+
+        return {
+          type,
+          data: JSON.parse(eventData ?? ''),
+        } as TemplateAiEditEvent;
+      });
+
+    expect(response.status).toBe(HttpStatus.OK);
+    expect(response.headers['content-type']).toContain('text/event-stream');
+    expect(events).toEqual(TemplateAiEditorServiceMock.events);
   });
 
   it('denies access to templates of another manager', async () => {

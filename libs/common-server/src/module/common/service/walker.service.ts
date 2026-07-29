@@ -2,8 +2,14 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { ReflectableDecorator } from '@nestjs/core/services/reflector.service';
 
+/**
+ * Nest component group searched by `WalkerService`.
+ */
 export type Scope = 'all' | 'controllers' | 'providers';
 
+/**
+ * Filters used when discovering decorated providers or controllers.
+ */
 export type ClassDiscoveryOptions<CParam = unknown> =
   | {
       scope?: Scope;
@@ -14,6 +20,9 @@ export type ClassDiscoveryOptions<CParam = unknown> =
       decoratorPredicate?: (value: CParam) => boolean;
     };
 
+/**
+ * Class and method metadata filters used for method discovery.
+ */
 export type MethodDiscoveryOptions<CParam, MParam> =
   ClassDiscoveryOptions<CParam> &
     (

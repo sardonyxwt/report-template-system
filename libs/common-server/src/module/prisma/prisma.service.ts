@@ -2,8 +2,14 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
 import { PrismaClient, Prisma } from 'platform/prisma/client';
 
+/**
+ * Prisma client available inside a database transaction.
+ */
 export type PrismaTransaction = Prisma.TransactionClient;
 
+/**
+ * Timing limits forwarded to Prisma interactive transactions.
+ */
 export type PrismaTransactionOptions = { maxWait?: number; timeout?: number };
 
 /**

@@ -1,16 +1,18 @@
 import { z } from 'zod';
-import { PatientSchema } from 'platform/prisma';
 import { aliases } from 'platform/zod';
+import { ClinicSimpleSchema } from '../clinic/clinic-simple.data';
 import {
   ArgsAggregateRequestSchema,
   createManyResponseSchema,
 } from '../common/common.data';
 import { UserSimpleSchema } from '../user/user-simple.data';
+import { PatientSimpleSchema } from './patient-simple.data';
 
 export const PatientResponseSchema = z
   .object({
-    ...PatientSchema.shape,
+    ...PatientSimpleSchema.shape,
     user: UserSimpleSchema,
+    clinic: ClinicSimpleSchema,
   })
   .meta({ name: 'PatientResponseSchema' });
 
@@ -20,7 +22,7 @@ export const PatientsResponseSchema = createManyResponseSchema(
 
 export const PatientCreateRequestSchema = z
   .object({
-    clinicId: PatientSchema.shape.clinicId,
+    clinicId: PatientSimpleSchema.shape.clinicId.positive('Select a clinic.'),
     email: aliases.email,
   })
   .meta({ name: 'PatientCreateRequestSchema' });

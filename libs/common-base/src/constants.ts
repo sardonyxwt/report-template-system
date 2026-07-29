@@ -18,3 +18,7 @@ export const AUTH_REFRESH_COOKIE_KEY = 'jwt-refresh';
 export const REQUEST_ID_HEADER = 'X-Request-Id';
 
 export const ID_PATH_PARAM_NAME = 'id';
+export const PDF_MIMETYPE = 'application/pdf';
+
+export const TABLE_PAGE_SIZE = 20;
+export const REFERENCE_ITEMS_LIMIT = 500;

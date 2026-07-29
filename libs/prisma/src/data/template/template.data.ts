@@ -12,7 +12,10 @@ export const TemplateBlockTypeSchema = z.enum([
   'healthDeepDive',
 ]);
 
-export const TemplateMarkupSchema = z.string().trim().min(1);
+export const TemplateMarkupSchema = z
+  .string()
+  .trim()
+  .min(1, 'Template content is required.');
 
 export const TemplateCoverBlockSchema = z.object({
   type: z.literal(TemplateBlockTypeSchema.enum.cover),
@@ -80,6 +83,24 @@ export const TemplateBlockSchema = z.discriminatedUnion('type', [
   TemplateHealthDeepDiveBlockSchema,
 ]);
 
-export const TemplateDataSchema = z.object({
-  blocks: z.array(TemplateBlockSchema).min(1),
-});
+export const TemplateDataSchema = z
+  .object({
+    blocks: z.array(TemplateBlockSchema),
+  })
+  .superRefine(({ blocks }, context) => {
+    const availableTypes = TemplateBlockTypeSchema.options;
+    const blockTypes = blocks.map(({ type }) => type);
+    const uniqueBlockTypes = new Set(blockTypes);
+
+    if (
+      blocks.length !== availableTypes.length ||
+      uniqueBlockTypes.size !== availableTypes.length ||
+      availableTypes.some((type) => !uniqueBlockTypes.has(type))
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'All template block types must be present exactly once',
+        path: ['blocks'],
+      });
+    }
+  });

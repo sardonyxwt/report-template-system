@@ -1,22 +1,23 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { type ReactNode, useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import {
   type ClinicCreateRequest,
   ClinicCreateRequestSchema,
   type ClinicResponse,
   type ClinicUpdateRequest,
   ClinicUpdateRequestSchema,
-  type UserResponse,
+  REFERENCE_ITEMS_LIMIT,
 } from 'platform/common-base';
 import { UserRole } from 'platform/prisma';
-import { type ReactNode, useEffect, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import { api } from '../../api/client.api';
 import { useRequest } from '../../hooks/request.hook';
 import { useAccessControl } from '../../providers/access-control.provider';
 import { useAuthenticatedUser } from '../../providers/auth.provider';
 import { formatOptionLabel } from '../../utils/formatting.utils';
 import { getErrorMessage } from '../../utils/request.utils';
+import { EntityAutocomplete } from '../form/entity-autocomplete.component';
 import { FormFieldGroup } from '../form/form-field-group.component';
 import { SubmitLabel } from '../form/submit-label.component';
 import { Button } from '../shadcn/ui/button';
@@ -30,13 +31,6 @@ import {
   DialogTrigger,
 } from '../shadcn/ui/dialog';
 import { Input } from '../shadcn/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../shadcn/ui/select';
 
 type ClinicForm = ClinicCreateRequest | ClinicUpdateRequest;
 
@@ -57,13 +51,16 @@ export const ClinicModal = ({
     resolver: zodResolver(
       clinic ? ClinicUpdateRequestSchema : ClinicCreateRequestSchema,
     ),
-    defaultValues: createDefaultValues(clinic, user.id),
+    defaultValues: createDefaultValues(
+      clinic,
+      canAssignManager ? undefined : user.id,
+    ),
   });
   const managersRequest = useRequest(async () => {
     const response = await api.user.findMany({
       where: { role: UserRole.Manager },
       orderBy: { email: 'asc' },
-      take: 100,
+      take: REFERENCE_ITEMS_LIMIT,
     });
     return response.items;
   });
@@ -86,7 +83,9 @@ export const ClinicModal = ({
     if (!open) {
       return;
     }
-    form.reset(createDefaultValues(clinic, user.id));
+    form.reset(
+      createDefaultValues(clinic, canAssignManager ? undefined : user.id),
+    );
     if (canAssignManager) {
       void managersRequest.fetch().catch(() => undefined);
     }
@@ -104,6 +103,7 @@ export const ClinicModal = ({
           </DialogDescription>
         </DialogHeader>
         <form
+          noValidate
           className="grid gap-4"
           onSubmit={form.handleSubmit(
             (data) => void saveRequest.fetch(data).catch(() => undefined),
@@ -117,6 +117,7 @@ export const ClinicModal = ({
             <Input
               id="clinic-name"
               placeholder="Northstar Health"
+              aria-invalid={Boolean(form.formState.errors.name)}
               {...form.register('name')}
             />
           </FormFieldGroup>
@@ -130,26 +131,22 @@ export const ClinicModal = ({
                 control={form.control}
                 name="managerId"
                 render={({ field }) => (
-                  <Select
-                    value={field.value ? String(field.value) : ''}
-                    onValueChange={(value) => field.onChange(Number(value))}
-                  >
-                    <SelectTrigger id="clinic-manager" className="w-full">
-                      <SelectValue placeholder="Select manager" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(managersRequest.data ?? []).map(
-                        (manager: UserResponse) => (
-                          <SelectItem
-                            key={manager.id}
-                            value={String(manager.id)}
-                          >
-                            {formatOptionLabel(manager.fullName, manager.email)}
-                          </SelectItem>
-                        ),
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <EntityAutocomplete
+                    id="clinic-manager"
+                    value={(managersRequest.data ?? []).find(
+                      (manager) => manager.id === field.value,
+                    )}
+                    items={managersRequest.data ?? []}
+                    placeholder="Search for a manager…"
+                    emptyLabel="No managers found."
+                    loading={managersRequest.isLoading}
+                    invalid={Boolean(form.formState.errors.managerId)}
+                    getKey={(manager) => String(manager.id)}
+                    getLabel={(manager) =>
+                      formatOptionLabel(manager.fullName, manager.email)
+                    }
+                    onChange={(manager) => field.onChange(manager?.id ?? 0)}
+                  />
                 )}
               />
             </FormFieldGroup>

@@ -1,11 +1,19 @@
 import { type ColumnDef } from '@tanstack/react-table';
 import { PencilIcon } from 'lucide-react';
-import { type TemplateResponse } from 'platform/common-base';
-import { UserRole } from 'platform/prisma';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  type ClinicResponse,
+  type TemplateResponse,
+  REFERENCE_ITEMS_LIMIT,
+} from 'platform/common-base';
+import { searchQueryOrUndef, UserRole } from 'platform/prisma';
 import { api } from '../api/client.api';
 import { Can } from '../components/can.component';
 import { TemplateModal } from '../components/modal/template.modal';
+import {
+  AsyncAutocompleteFilter,
+  ResourceSearchInput,
+} from '../components/resource-filters.component';
 import { ResourcePage } from '../components/resource-page.component';
 import { Button } from '../components/shadcn/ui/button';
 import { useAccessControl } from '../providers/access-control.provider';
@@ -14,15 +22,35 @@ import { useAuthenticatedUser } from '../providers/auth.provider';
 export const TemplatesPage = () => {
   const access = useAccessControl();
   const user = useAuthenticatedUser();
+  const [search, setSearch] = useState('');
+  const [clinic, setClinic] = useState<ClinicResponse>();
+  const loadClinics = useCallback(
+    async (clinicSearch: string) => {
+      const response = await api.clinic.findMany({
+        where: {
+          AND: [
+            user.role === UserRole.Admin ? {} : { managerId: user.id },
+            clinicSearch
+              ? {
+                  name: searchQueryOrUndef(clinicSearch),
+                }
+              : {},
+          ],
+        },
+        orderBy: { name: 'asc' },
+        take: REFERENCE_ITEMS_LIMIT,
+      });
+      return response.items;
+    },
+    [user.id, user.role],
+  );
   const columns = useMemo<ColumnDef<TemplateResponse>[]>(
     () => [
-      { accessorKey: 'id', header: 'ID' },
       { accessorKey: 'name', header: 'Template' },
-      { accessorKey: 'clinicId', header: 'Clinic ID' },
       {
-        id: 'blocks',
-        header: 'Blocks',
-        cell: ({ row }) => row.original.data.blocks.length,
+        id: 'clinic',
+        header: 'Clinic',
+        cell: ({ row }) => row.original.clinic.name,
       },
     ],
     [],
@@ -34,17 +62,44 @@ export const TemplatesPage = () => {
       description="Create reusable, clinic-specific report structures."
       itemName="template"
       columns={columns}
-      load={async () => {
-        const response = await api.template.findMany({
-          where:
-            user.role === UserRole.Admin
-              ? {}
-              : { clinic: { managerId: user.id } },
+      load={(pagination) =>
+        api.template.findMany({
+          where: {
+            AND: [
+              user.role === UserRole.Admin
+                ? {}
+                : { clinic: { managerId: user.id } },
+              search
+                ? {
+                    name: searchQueryOrUndef(search),
+                  }
+                : {},
+              clinic ? { clinicId: clinic.id } : {},
+            ],
+          },
           orderBy: { name: 'asc' },
-          take: 250,
-        });
-        return response.items;
-      }}
+          ...pagination,
+        })
+      }
+      loadKey={`${search}|${clinic?.id ?? ''}`}
+      filters={
+        <>
+          <ResourceSearchInput
+            value={search}
+            placeholder="Search templates by name"
+            onChange={setSearch}
+          />
+          <AsyncAutocompleteFilter
+            value={clinic}
+            placeholder="Search clinic"
+            emptyLabel="No clinics found."
+            load={loadClinics}
+            getKey={(option) => String(option.id)}
+            getLabel={(option) => option.name}
+            onChange={setClinic}
+          />
+        </>
+      }
       getRowId={(template) => String(template.id)}
       createAction={
         access.templates.create({ managerId: user.id })
@@ -59,7 +114,7 @@ export const TemplatesPage = () => {
             template={template}
             onSaved={reload}
             trigger={
-              <Button variant="ghost" size="icon" aria-label="Edit template">
+              <Button variant="ghost" size="icon-sm" aria-label="Edit template">
                 <PencilIcon />
               </Button>
             }

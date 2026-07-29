@@ -3,10 +3,16 @@ import { InjectableOptions } from '@nestjs/common/decorators/core/injectable.dec
 import { Reflector } from '@nestjs/core';
 import { AppLoggerMeta } from 'platform/common-base';
 
+/**
+ * Provider contract for metadata merged into structured application logs.
+ */
 export type LoggerMetaProvider = {
   getLoggerMeta: () => AppLoggerMeta;
 };
 
+/**
+ * Marks a provider for discovery by the shared logger service.
+ */
 export const SetLoggerMetaProviderMetadata = Reflector.createDecorator({
   key: 'LOGGER_META_PROVIDER',
 });

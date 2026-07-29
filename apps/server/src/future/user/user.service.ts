@@ -7,7 +7,7 @@ import {
   UserUpdateRequest,
 } from 'platform/common-base';
 import { PrismaService, SessionService } from 'platform/common-server';
-import { userInclude } from 'platform/prisma';
+import { userInclude, UserRole } from 'platform/prisma';
 
 /**
  * Implements user administration rules.
@@ -38,6 +38,7 @@ export class UserService {
     const createdUser = await this.prisma.tx.user.create({
       data: {
         ...userFields,
+        role: UserRole.User,
       },
       include: userInclude.include,
     });
@@ -50,7 +51,7 @@ export class UserService {
   }
 
   /**
-   * Updates user fields and clears active tokens when the role changes.
+   * Updates user fields. Role transitions are handled by manager operations.
    */
   async update(data: UserUpdateRequest): Promise<UserResponse> {
     const { ...userFields } = data;
@@ -68,8 +69,6 @@ export class UserService {
       updates: userFields,
     });
 
-    const removeTokens = updatingUser.role !== userFields.role;
-
     this.logger.log('Update user started', UserService.name, {
       userId: userFields.id,
     });
@@ -77,8 +76,6 @@ export class UserService {
     const updatedUser = await this.prisma.tx.user.update({
       data: {
         ...userFields,
-        accessToken: removeTokens ? null : undefined,
-        refreshToken: removeTokens ? null : undefined,
       },
       where: {
         id: userFields.id,

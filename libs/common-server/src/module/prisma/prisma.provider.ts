@@ -34,6 +34,9 @@ type SecureFieldOperationArgs = {
   where?: unknown;
 };
 
+/**
+ * Prisma client type after platform query extensions are installed.
+ */
 export type ExtendedPrismaClient = ReturnType<
   (typeof PrismaProvider)['prototype']['createPrismaClient']
 >;
@@ -79,9 +82,19 @@ export class PrismaProvider implements OnModuleInit, OnModuleDestroy {
     datasourceUrl?: string,
     logger?: PrismaClientLogger,
   ) {
-    const adapter = new PrismaPg({
-      connectionString: datasourceUrl ?? process.env['DATABASE_URL'],
-    });
+    const connectionString = datasourceUrl ?? process.env['DATABASE_URL'];
+    const url = connectionString ? new URL(connectionString) : undefined;
+    const schema = url?.searchParams.get('schema') ?? undefined;
+
+    url?.searchParams.delete('schema');
+
+    const adapter = new PrismaPg(
+      {
+        connectionString: url?.toString() ?? connectionString,
+        ...(schema ? { options: `-c search_path=${schema}` } : {}),
+      },
+      schema ? { schema } : undefined,
+    );
 
     const client = new PrismaClient({
       adapter,

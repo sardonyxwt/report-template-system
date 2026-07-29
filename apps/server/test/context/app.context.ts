@@ -1,5 +1,5 @@
 import { ManagerResponse, UserResponse } from 'platform/common-base';
-import { UserRole } from 'platform/prisma';
+import { TemplateAiEditorService } from '../../src/future/template/template-ai-editor.service';
 import {
   AuthContext,
   PostSetupTestModule,
@@ -8,6 +8,7 @@ import {
 import { createAuthHelper } from './helper/auth.helper';
 import { createPrismaHelper } from './helper/prisma.helper';
 import { createUserHelper } from './helper/user.helper';
+import { TemplateAiEditorServiceMock } from './mock/template-ai-editor.service.mock';
 
 export const withAppContext = (postSetup?: PostSetupTestModule) => {
   const appModule = createAppTestModule();
@@ -18,8 +19,9 @@ export const withAppContext = (postSetup?: PostSetupTestModule) => {
 
   beforeEach(async () => {
     await appModule.setup((module) => {
-      // Here place all necessary override
-      // module.overrideProvider(Service).useClass(ServiceMock)
+      module
+        .overrideProvider(TemplateAiEditorService)
+        .useClass(TemplateAiEditorServiceMock);
       return postSetup?.(module);
     });
     await prismaHelper.cleanup();
@@ -43,7 +45,6 @@ export const withAppContext = (postSetup?: PostSetupTestModule) => {
       async createAuthorizedUserWithEmail(email: string) {
         const user = await userHelper.createAndActivate({
           email,
-          role: UserRole.User,
         });
         return authHelper.authorize(user);
       },
@@ -64,7 +65,6 @@ export const withAppContext = (postSetup?: PostSetupTestModule) => {
       ) {
         const [manager, user] = await userHelper.createManager(context, {
           email,
-          role: UserRole.User,
         });
         const authorizedUser = await authHelper.authorize(user);
         return [{ ...manager, user }, authorizedUser] satisfies [

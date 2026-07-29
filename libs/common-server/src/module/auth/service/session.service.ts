@@ -15,8 +15,14 @@ import {
 import { userInclude, AuthProviderType, User } from 'platform/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
 
+/**
+ * Database user enriched with the public profile relations used by a session.
+ */
 export type SessionUser = User & ProfileResponse;
 
+/**
+ * Normalized identity returned by a supported OAuth provider.
+ */
 export type OauthPayload = {
   provider: AuthProviderType;
   externalId: string;

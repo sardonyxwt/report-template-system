@@ -89,6 +89,9 @@ export class LoggerService
     private readonly options: CommonModuleOptions,
   ) {}
 
+  /**
+   * Creates the Winston bridge and redirects console methods into it.
+   */
   onModuleInit() {
     this.winston = this.createWinstonLogger(this.options.logger.transports);
 
@@ -114,6 +117,9 @@ export class LoggerService
       this.error(message, LoggerService.name, ...context);
   }
 
+  /**
+   * Releases Winston transports during Nest shutdown.
+   */
   onModuleDestroy() {
     this.winston.destroy();
   }
@@ -125,6 +131,9 @@ export class LoggerService
     this.loadProviders();
   }
 
+  /**
+   * Writes a debug-level structured log entry.
+   */
   debug = (message: unknown, target?: string, ...context: unknown[]): void => {
     this.logger.debug(
       message,
@@ -133,6 +142,9 @@ export class LoggerService
     );
   };
 
+  /**
+   * Writes an info-level structured log entry.
+   */
   log = (message: unknown, target?: string, ...context: unknown[]): void => {
     this.logger.info(
       message,
@@ -141,6 +153,9 @@ export class LoggerService
     );
   };
 
+  /**
+   * Writes a verbose-level structured log entry.
+   */
   verbose = (
     message: unknown,
     target?: string,
@@ -153,6 +168,9 @@ export class LoggerService
     );
   };
 
+  /**
+   * Writes a warning-level structured log entry.
+   */
   warn = (message: unknown, target?: string, ...context: unknown[]): void => {
     this.logger.warn(
       message,
@@ -161,6 +179,9 @@ export class LoggerService
     );
   };
 
+  /**
+   * Writes an error-level structured log entry.
+   */
   error = (message: unknown, target?: string, ...context: unknown[]): void => {
     this.logger.error(
       message,
@@ -169,6 +190,9 @@ export class LoggerService
     );
   };
 
+  /**
+   * Writes a fatal condition using the logger's error transport.
+   */
   fatal = (message: unknown, target?: string, ...context: unknown[]): void => {
     this.logger.error(
       message,

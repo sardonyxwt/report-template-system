@@ -124,7 +124,7 @@ export class OpenapiService {
           [status]: {
             description: 'Success response',
             content: {
-              ['application/json']: {
+              [endpoint.events ? 'text/event-stream' : 'application/json']: {
                 schema: endpoint.response,
                 example: [endpoint.response.meta()?.example],
               },
@@ -139,14 +139,17 @@ export class OpenapiService {
         responses = {
           [status]: {
             description: 'Success response',
-            content: {
-              'application/octet-stream': {
-                schema: {
-                  type: 'string',
-                  format: 'binary',
+            content: Object.fromEntries(
+              endpoint.response.mimetype.map((mimetype) => [
+                mimetype,
+                {
+                  schema: {
+                    type: 'string',
+                    format: 'binary',
+                  },
                 },
-              },
-            },
+              ]),
+            ),
           } as ZodOpenApiResponseObject,
         };
       } else {

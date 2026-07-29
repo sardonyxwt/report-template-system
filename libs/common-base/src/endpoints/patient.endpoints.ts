@@ -1,4 +1,6 @@
 import { ZodType } from 'zod';
+import { ID_PATH_PARAM_NAME } from '../constants';
+import { ActionNumberIdParamsSchema } from '../data/common/common.data';
 import {
   PatientAggregateRequestSchema,
   PatientCreateRequestSchema,
@@ -17,6 +19,14 @@ export const createPatientEndpoints = (base = '') =>
       path: `${base}/${root}`,
       status: HttpStatus.Created,
       body: PatientCreateRequestSchema as ZodType,
+      response: PatientResponseSchema as ZodType,
+      guards: ['auth'],
+    },
+    delete: {
+      method: HttpMethod.Delete,
+      path: `${base}/${root}/:${ID_PATH_PARAM_NAME}`,
+      build: (id: number) => `${base}/${root}/${id}`,
+      params: ActionNumberIdParamsSchema as ZodType,
       response: PatientResponseSchema as ZodType,
       guards: ['auth'],
     },

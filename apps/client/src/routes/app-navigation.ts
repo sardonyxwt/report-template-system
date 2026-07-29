@@ -69,7 +69,7 @@ export const appNavigation: NavigationItem[] = appSections.map(
 
 export const fallbackNavigationItem: NavigationItem = {
   section: 'patientReports',
-  label: 'Report workspace',
+  label: 'Proactive Care',
   description: 'Secure clinical reporting',
   path: routes.app.root(),
   icon: FileTextIcon,

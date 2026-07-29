@@ -8,6 +8,9 @@ import {
 import { AUTH_MODULE_OPTIONS, AuthModuleOptions } from '../auth.options';
 import { TokensService } from './tokens.service';
 
+/**
+ * Access and refresh token pair written to authentication cookies.
+ */
 export type Tokens = {
   accessToken: string;
   refreshToken: string;

@@ -64,6 +64,22 @@ describe('api.patient-report', () => {
       const patientReportsData = findManyRes.body as PatientReportsResponse;
       expect(patientReportsData.total).toBe(1);
       expect(patientReportsData.items[0]?.report.id).toBe(report.id);
+
+      const pdfRes = await context.apiCall({
+        method: endpoints.patientReport.downloadPdf.method,
+        path: endpoints.patientReport.downloadPdf.build(report.id),
+        accessToken,
+      });
+
+      expect(pdfRes.status).toBe(HttpStatus.OK);
+      expect(pdfRes.headers['cache-control']).toBe('no-store');
+      expect(pdfRes.headers['content-type']).toContain('application/pdf');
+      expect(pdfRes.headers['content-disposition']).toContain(
+        `patient-report-${report.createdAt
+          .toISOString()
+          .replace(/\.\d{3}Z$/, 'Z')
+          .replaceAll(':', '-')}.pdf`,
+      );
     }
   });
 
@@ -155,5 +171,119 @@ describe('api.patient-report', () => {
 
     expect(managerRes.status).toBe(HttpStatus.FORBIDDEN);
     expect(patientRes.status).toBe(HttpStatus.FORBIDDEN);
+
+    for (const accessToken of [
+      anotherManager.accessToken!,
+      anotherPatient.accessToken!,
+    ]) {
+      const pdfRes = await context.apiCall({
+        method: endpoints.patientReport.downloadPdf.method,
+        path: endpoints.patientReport.downloadPdf.build(report.id),
+        accessToken,
+      });
+
+      expect(pdfRes.status).toBe(HttpStatus.FORBIDDEN);
+    }
+  });
+
+  it('allows the owner manager and admin to delete patient reports', async () => {
+    const admin = await macros.createAuthorizedAdmin();
+    const [manager, authorizedManager] =
+      await macros.createAuthorizedManager(admin);
+    const patient = await macros.createAuthorizedUserWithEmail(
+      'delete-patient-report-patient@gmail.com',
+    );
+    const clinic = await context.prisma.clinic.create({
+      data: clinicFixtures.clinic(manager.userId),
+    });
+    await context.prisma.patient.create({
+      data: {
+        userId: patient.id,
+        clinicId: clinic.id,
+      },
+    });
+    const template = await context.prisma.template.create({
+      data: templateFixtures.template(clinic.id),
+    });
+    const managerClinicReport = await context.prisma.clinicReport.create({
+      data: clinicReportFixtures.report(clinic.id, patient.id),
+    });
+    const adminClinicReport = await context.prisma.clinicReport.create({
+      data: clinicReportFixtures.report(clinic.id, patient.id),
+    });
+    await context.prisma.patientReport.createMany({
+      data: [
+        { reportId: managerClinicReport.id, templateId: template.id },
+        { reportId: adminClinicReport.id, templateId: template.id },
+      ],
+    });
+
+    const managerRes = await context.apiCall({
+      method: endpoints.patientReport.delete.method,
+      path: endpoints.patientReport.delete.build(managerClinicReport.id),
+      accessToken: authorizedManager.accessToken!,
+    });
+    const adminRes = await context.apiCall({
+      method: endpoints.patientReport.delete.method,
+      path: endpoints.patientReport.delete.build(adminClinicReport.id),
+      accessToken: admin.accessToken,
+    });
+
+    expect(managerRes.status).toBe(HttpStatus.OK);
+    expect(adminRes.status).toBe(HttpStatus.OK);
+    await expect(context.prisma.patientReport.count()).resolves.toBe(0);
+    await expect(context.prisma.clinicReport.count()).resolves.toBe(2);
+  });
+
+  it('denies patient report deletion to another manager and a patient', async () => {
+    const admin = await macros.createAuthorizedAdmin();
+    const [owner] = await macros.createAuthorizedManager(admin);
+    const [, anotherManager] = await macros.createAuthorizedManagerWithEmail(
+      admin,
+      'delete-patient-report-manager-2@gmail.com',
+    );
+    const patient = await macros.createAuthorizedUserWithEmail(
+      'delete-patient-report-denied-patient@gmail.com',
+    );
+    const clinic = await context.prisma.clinic.create({
+      data: clinicFixtures.clinic(owner.userId),
+    });
+    await context.prisma.patient.create({
+      data: {
+        userId: patient.id,
+        clinicId: clinic.id,
+      },
+    });
+    const template = await context.prisma.template.create({
+      data: templateFixtures.template(clinic.id),
+    });
+    const report = await context.prisma.clinicReport.create({
+      data: clinicReportFixtures.report(clinic.id, patient.id),
+    });
+    await context.prisma.patientReport.create({
+      data: {
+        reportId: report.id,
+        templateId: template.id,
+      },
+    });
+
+    for (const accessToken of [
+      anotherManager.accessToken!,
+      patient.accessToken!,
+    ]) {
+      const response = await context.apiCall({
+        method: endpoints.patientReport.delete.method,
+        path: endpoints.patientReport.delete.build(report.id),
+        accessToken,
+      });
+
+      expect(response.status).toBe(HttpStatus.FORBIDDEN);
+    }
+
+    await expect(
+      context.prisma.patientReport.findUnique({
+        where: { reportId: report.id },
+      }),
+    ).resolves.not.toBeNull();
   });
 });

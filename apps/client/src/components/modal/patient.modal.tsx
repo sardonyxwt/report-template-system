@@ -1,17 +1,21 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { type ReactNode, useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import {
   type ClinicResponse,
   type PatientCreateRequest,
   PatientCreateRequestSchema,
+  REFERENCE_ITEMS_LIMIT,
+  type UserResponse,
 } from 'platform/common-base';
 import { UserRole } from 'platform/prisma';
-import { type ReactNode, useEffect, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import { api } from '../../api/client.api';
 import { useRequest } from '../../hooks/request.hook';
 import { useAuthenticatedUser } from '../../providers/auth.provider';
+import { formatOptionLabel } from '../../utils/formatting.utils';
 import { getErrorMessage } from '../../utils/request.utils';
+import { EntityAutocomplete } from '../form/entity-autocomplete.component';
 import { FormFieldGroup } from '../form/form-field-group.component';
 import { SubmitLabel } from '../form/submit-label.component';
 import { Button } from '../shadcn/ui/button';
@@ -25,13 +29,6 @@ import {
   DialogTrigger,
 } from '../shadcn/ui/dialog';
 import { Input } from '../shadcn/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../shadcn/ui/select';
 
 export const PatientModal = ({
   trigger,
@@ -42,15 +39,28 @@ export const PatientModal = ({
 }) => {
   const [open, setOpen] = useState(false);
   const user = useAuthenticatedUser();
+  const isAdmin = user.role === UserRole.Admin;
   const form = useForm<PatientCreateRequest>({
     resolver: zodResolver(PatientCreateRequestSchema),
     defaultValues: { clinicId: 0, email: '' },
   });
   const clinicsRequest = useRequest(async () => {
     const response = await api.clinic.findMany({
-      where: user.role === UserRole.Admin ? {} : { managerId: user.id },
+      where: isAdmin ? {} : { managerId: user.id },
       orderBy: { name: 'asc' },
-      take: 100,
+      take: REFERENCE_ITEMS_LIMIT,
+    });
+    return response.items;
+  });
+  const usersRequest = useRequest(async () => {
+    const response = await api.user.findMany({
+      where: {
+        role: UserRole.User,
+        manager: null,
+        patient: null,
+      },
+      orderBy: { email: 'asc' },
+      take: REFERENCE_ITEMS_LIMIT,
     });
     return response.items;
   });
@@ -67,8 +77,11 @@ export const PatientModal = ({
     if (open) {
       form.reset({ clinicId: 0, email: '' });
       void clinicsRequest.fetch().catch(() => undefined);
+      if (isAdmin) {
+        void usersRequest.fetch().catch(() => undefined);
+      }
     }
-  }, [clinicsRequest.fetch, form, open]);
+  }, [clinicsRequest.fetch, form, isAdmin, open, usersRequest.fetch]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -77,11 +90,13 @@ export const PatientModal = ({
         <DialogHeader>
           <DialogTitle>Assign patient</DialogTitle>
           <DialogDescription>
-            Assign an existing user account that is not already a manager or a
-            patient.
+            {isAdmin
+              ? 'Select an existing unassigned user account and a clinic.'
+              : 'Enter the email of an existing unassigned user account and select one of your clinics.'}
           </DialogDescription>
         </DialogHeader>
         <form
+          noValidate
           className="grid gap-4"
           onSubmit={form.handleSubmit(
             (data) => void createRequest.fetch(data).catch(() => undefined),
@@ -96,38 +111,71 @@ export const PatientModal = ({
               control={form.control}
               name="clinicId"
               render={({ field }) => (
-                <Select
-                  value={field.value ? String(field.value) : ''}
-                  onValueChange={(value) => field.onChange(Number(value))}
-                >
-                  <SelectTrigger id="patient-clinic" className="w-full">
-                    <SelectValue placeholder="Select clinic" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(clinicsRequest.data ?? []).map(
-                      (clinic: ClinicResponse) => (
-                        <SelectItem key={clinic.id} value={String(clinic.id)}>
-                          {clinic.name}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
+                <EntityAutocomplete
+                  id="patient-clinic"
+                  value={(clinicsRequest.data ?? []).find(
+                    (clinic) => clinic.id === field.value,
+                  )}
+                  items={clinicsRequest.data ?? []}
+                  placeholder="Search for a clinic…"
+                  emptyLabel="No clinics found."
+                  loading={clinicsRequest.isLoading}
+                  invalid={Boolean(form.formState.errors.clinicId)}
+                  getKey={(clinic: ClinicResponse) => String(clinic.id)}
+                  getLabel={(clinic: ClinicResponse) => clinic.name}
+                  onChange={(clinic) => field.onChange(clinic?.id ?? 0)}
+                />
               )}
             />
           </FormFieldGroup>
-          <FormFieldGroup
-            label="User email"
-            htmlFor="patient-email"
-            error={form.formState.errors.email?.message}
-          >
-            <Input
-              id="patient-email"
-              type="email"
-              placeholder="patient@example.com"
-              {...form.register('email')}
-            />
-          </FormFieldGroup>
+          {isAdmin ? (
+            <FormFieldGroup
+              label="User"
+              htmlFor="patient-user"
+              error={form.formState.errors.email?.message}
+            >
+              <Controller
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <EntityAutocomplete
+                    id="patient-user"
+                    value={(usersRequest.data ?? []).find(
+                      (patientUser) => patientUser.email === field.value,
+                    )}
+                    items={usersRequest.data ?? []}
+                    placeholder="Search for a user…"
+                    emptyLabel="No unassigned users found."
+                    loading={usersRequest.isLoading}
+                    invalid={Boolean(form.formState.errors.email)}
+                    getKey={(patientUser: UserResponse) =>
+                      String(patientUser.id)
+                    }
+                    getLabel={(patientUser: UserResponse) =>
+                      formatOptionLabel(patientUser.fullName, patientUser.email)
+                    }
+                    onChange={(patientUser) =>
+                      field.onChange(patientUser?.email ?? '')
+                    }
+                  />
+                )}
+              />
+            </FormFieldGroup>
+          ) : (
+            <FormFieldGroup
+              label="User email"
+              htmlFor="patient-email"
+              error={form.formState.errors.email?.message}
+            >
+              <Input
+                id="patient-email"
+                type="email"
+                placeholder="patient@example.com"
+                aria-invalid={Boolean(form.formState.errors.email)}
+                {...form.register('email')}
+              />
+            </FormFieldGroup>
+          )}
           <DialogFooter>
             <Button
               type="button"

@@ -8,7 +8,9 @@ module.exports = {
   transform: {
     '^.+\\.[tj]s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json' }],
   },
-  transformIgnorePatterns: ['node_modules/(?!(file-type)/)'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(file-type|puppeteer|puppeteer-core|@puppeteer/browsers)/)',
+  ],
   runner: require.resolve('jest-serial-runner'),
   moduleFileExtensions: ['ts', 'js', 'html'],
   coveragePathIgnorePatterns: ['<rootDir>/test/'],

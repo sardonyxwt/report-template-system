@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { ClinicReportApi } from './clinic-report.api';
 import { ClinicReportService } from './clinic-report.service';
 
+/**
+ * Nest feature module for clinic report endpoints.
+ */
 @Module({
   controllers: [ClinicReportApi],
   providers: [ClinicReportService],

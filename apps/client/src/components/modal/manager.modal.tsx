@@ -1,17 +1,19 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  type ManagerCreateRequest,
-  ManagerCreateRequestSchema,
-  type UserResponse,
-} from 'platform/common-base';
-import { UserRole } from 'platform/prisma';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import {
+  type ManagerCreateRequest,
+  ManagerCreateRequestSchema,
+  REFERENCE_ITEMS_LIMIT,
+  type UserResponse,
+} from 'platform/common-base';
+import { UserRole } from 'platform/prisma';
 import { api } from '../../api/client.api';
 import { useRequest } from '../../hooks/request.hook';
 import { formatOptionLabel } from '../../utils/formatting.utils';
 import { getErrorMessage } from '../../utils/request.utils';
+import { EntityAutocomplete } from '../form/entity-autocomplete.component';
 import { FormFieldGroup } from '../form/form-field-group.component';
 import { SubmitLabel } from '../form/submit-label.component';
 import { Button } from '../shadcn/ui/button';
@@ -24,13 +26,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../shadcn/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../shadcn/ui/select';
 
 export const ManagerModal = ({
   trigger,
@@ -51,7 +46,7 @@ export const ManagerModal = ({
         patient: null,
       },
       orderBy: { email: 'asc' },
-      take: 100,
+      take: REFERENCE_ITEMS_LIMIT,
     });
     return response.items;
   });
@@ -83,6 +78,7 @@ export const ManagerModal = ({
           </DialogDescription>
         </DialogHeader>
         <form
+          noValidate
           className="grid gap-4"
           onSubmit={form.handleSubmit(
             (data) => void createRequest.fetch(data).catch(() => undefined),
@@ -97,27 +93,22 @@ export const ManagerModal = ({
               control={form.control}
               name="userId"
               render={({ field }) => (
-                <Select
-                  value={field.value ? String(field.value) : ''}
-                  onValueChange={(value) => field.onChange(Number(value))}
-                >
-                  <SelectTrigger id="manager-user" className="w-full">
-                    <SelectValue
-                      placeholder={
-                        usersRequest.isLoading
-                          ? 'Loading users…'
-                          : 'Select a user'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(usersRequest.data ?? []).map((user: UserResponse) => (
-                      <SelectItem key={user.id} value={String(user.id)}>
-                        {formatOptionLabel(user.fullName, user.email)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityAutocomplete
+                  id="manager-user"
+                  value={(usersRequest.data ?? []).find(
+                    (candidate) => candidate.id === field.value,
+                  )}
+                  items={usersRequest.data ?? []}
+                  placeholder="Search for a user…"
+                  emptyLabel="No unassigned users found."
+                  loading={usersRequest.isLoading}
+                  invalid={Boolean(form.formState.errors.userId)}
+                  getKey={(candidate: UserResponse) => String(candidate.id)}
+                  getLabel={(candidate: UserResponse) =>
+                    formatOptionLabel(candidate.fullName, candidate.email)
+                  }
+                  onChange={(candidate) => field.onChange(candidate?.id ?? 0)}
+                />
               )}
             />
           </FormFieldGroup>

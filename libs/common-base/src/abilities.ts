@@ -12,6 +12,7 @@ export interface OwnedEntityCheck {
 }
 
 export type UserUpdateGuardedFields = Pick<User, 'id' | 'role' | 'email'>;
+export type UserUpdateFields = Pick<User, 'id' | 'email'>;
 
 export type UserReadCheck = {
   userId?: number | null;
@@ -19,7 +20,7 @@ export type UserReadCheck = {
 
 export type UserUpdateCheck = {
   user: UserUpdateGuardedFields;
-  updates?: UserUpdateGuardedFields;
+  updates?: UserUpdateFields;
 };
 
 export type UserDeleteCheck = {
@@ -67,14 +68,14 @@ export const getUserAbilities = (payload?: JwtStrategyPayload) => {
           ? helper.forAdmin()
           : helper.forUserOwner({ ownerId: args.userId }),
       create: () => helper.forAdmin(),
-      update: ({ user, updates = user }: UserUpdateCheck) => {
+      update: ({ user, updates }: UserUpdateCheck) => {
         const authorizedCheck = helper.forAuthorized();
         if (!authorizedCheck.granted) return authorizedCheck;
 
         const isMe = user.id === payload?.id;
 
         const notChangedGuardedFields =
-          user.role === updates.role && user.email === updates.email;
+          !updates || user.email === updates.email;
 
         if (isMe) {
           if (notChangedGuardedFields) return helper.grant;
@@ -151,8 +152,16 @@ export const getUserAbilities = (payload?: JwtStrategyPayload) => {
         isAdmin
           ? helper.forAdmin()
           : helper.forManagerOwner({ ownerId: managerId }),
+      delete: ({ managerId }: OwnedEntityCheck) =>
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
     },
     templates: {
+      preview: () =>
+        helper.forSomeone({ roles: [UserRole.Admin, UserRole.Manager] }),
+      aiEdit: () =>
+        helper.forSomeone({ roles: [UserRole.Admin, UserRole.Manager] }),
       create: ({ managerId }: OwnedEntityCheck) =>
         isAdmin
           ? helper.forAdmin()
@@ -172,8 +181,14 @@ export const getUserAbilities = (payload?: JwtStrategyPayload) => {
     },
     clinicReports: {
       create: ({ managerId }: OwnedEntityCheck) =>
-        helper.forManagerOwner({ ownerId: managerId }),
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
       read: ({ managerId }: OwnedEntityCheck) =>
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
+      delete: ({ managerId }: OwnedEntityCheck) =>
         isAdmin
           ? helper.forAdmin()
           : helper.forManagerOwner({ ownerId: managerId }),
@@ -205,6 +220,10 @@ export const getUserAbilities = (payload?: JwtStrategyPayload) => {
 
         return helper.forUserOwner({ ownerId: patientId });
       },
+      delete: ({ managerId }: OwnedEntityCheck) =>
+        isAdmin
+          ? helper.forAdmin()
+          : helper.forManagerOwner({ ownerId: managerId }),
     },
   } satisfies Record<string, Record<string, AbilityChecker>>;
 };

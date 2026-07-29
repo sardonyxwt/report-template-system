@@ -1,14 +1,13 @@
 import { type ColumnDef } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { toast } from 'sonner';
+import { TABLE_PAGE_SIZE } from 'platform/common-base';
 import { useRequest } from '../hooks/request.hook';
+import {
+  type ResourcePageLoad,
+  useResourcePageData,
+} from '../hooks/resource-page.hook';
 import { getErrorMessage } from '../utils/request.utils';
 import { DataTable } from './data-table/data-table.component';
 import {
@@ -30,20 +29,22 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from './shadcn/ui/empty';
-import { Skeleton } from './shadcn/ui/skeleton';
+import { Spinner } from './shadcn/ui/spinner';
 
 type ResourcePageProps<Data> = {
   title: string;
   description: string;
   itemName: string;
   columns: ColumnDef<Data>[];
-  load: () => Promise<Data[]>;
+  load: ResourcePageLoad<Data>;
   getRowId: (row: Data) => string;
   createAction?: (reload: () => void, trigger: ReactNode) => ReactNode;
   rowAction?: (row: Data, reload: () => void) => ReactNode;
   canDelete?: (row: Data) => boolean;
   deleteAction?: (row: Data) => Promise<unknown>;
   onRowClick?: (row: Data) => void;
+  filters?: ReactNode;
+  loadKey?: string;
 };
 
 export const ResourcePage = <Data,>({
@@ -58,10 +59,22 @@ export const ResourcePage = <Data,>({
   canDelete,
   deleteAction,
   onRowClick,
+  filters,
+  loadKey = '',
 }: ResourcePageProps<Data>) => {
-  const [selected, setSelected] = useState<Data[]>([]);
-  const loadRequest = useRequest(load, {
-    onError: (error) => toast.error(getErrorMessage(error)),
+  const {
+    changePage,
+    data,
+    loading,
+    loadRequest,
+    pageCount,
+    pageIndex,
+    reload,
+    selected,
+    setSelected,
+  } = useResourcePageData({
+    load,
+    loadKey,
   });
   const deleteRequest = useRequest(
     async (rows: Data[]) => {
@@ -81,15 +94,6 @@ export const ResourcePage = <Data,>({
       onError: (error) => toast.error(getErrorMessage(error)),
     },
   );
-  const reload = useCallback(() => {
-    void loadRequest.reload();
-  }, [loadRequest]);
-
-  useEffect(() => {
-    void loadRequest.fetch().catch(() => undefined);
-  }, [loadRequest.fetch]);
-
-  const data = useMemo(() => loadRequest.data ?? [], [loadRequest.data]);
   const tableColumns = useMemo<ColumnDef<Data>[]>(
     () =>
       rowAction
@@ -174,38 +178,65 @@ export const ResourcePage = <Data,>({
         </div>
       </div>
 
-      {loadRequest.isLoading && !loadRequest.data ? (
-        <TableSkeleton />
-      ) : data.length ? (
-        <DataTable
-          columns={tableColumns}
-          data={data}
-          getRowId={getRowId}
-          enableRowSelection={canDelete}
-          onSelectionChange={setSelected}
-          onRowClick={onRowClick}
-        />
-      ) : (
-        <Empty className="min-h-80 rounded-xl border bg-card">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <PlusIcon />
-            </EmptyMedia>
-            <EmptyTitle>No {title.toLowerCase()} yet</EmptyTitle>
-            <EmptyDescription>
-              Create the first {itemName} or refresh after data is added.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+      {filters && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          {filters}
+        </div>
       )}
+
+      <div
+        className="relative flex min-h-0 flex-1 flex-col"
+        aria-busy={loading}
+      >
+        <div
+          className={`flex min-h-0 flex-1 flex-col transition-opacity duration-200 ease-in-out ${
+            loading ? 'pointer-events-none opacity-0' : 'opacity-100'
+          }`}
+          aria-hidden={loading}
+          inert={loading}
+        >
+          {data.length ? (
+            <DataTable
+              columns={tableColumns}
+              data={data}
+              getRowId={getRowId}
+              enableRowSelection={canDelete}
+              onSelectionChange={setSelected}
+              onRowClick={onRowClick}
+              pageIndex={pageIndex}
+              pageSize={TABLE_PAGE_SIZE}
+              pageCount={pageCount}
+              onPageChange={changePage}
+            />
+          ) : (
+            <Empty className="min-h-80 rounded-xl border bg-card">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <PlusIcon />
+                </EmptyMedia>
+                <EmptyTitle>No {title.toLowerCase()} yet</EmptyTitle>
+                <EmptyDescription>
+                  Create the first {itemName} or refresh after data is added.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+        </div>
+
+        <div
+          className={`absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background transition-opacity duration-200 ease-in-out ${
+            loading
+              ? 'cursor-wait opacity-100'
+              : 'pointer-events-none opacity-0'
+          }`}
+          aria-hidden={!loading}
+        >
+          <div role="status" className="flex items-center justify-center">
+            <Spinner className="size-6 text-muted-foreground" />
+            <span className="sr-only">Loading {title.toLowerCase()}…</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
-
-const TableSkeleton = () => (
-  <div className="space-y-3 rounded-xl border bg-card p-4">
-    {Array.from({ length: 7 }).map((_, index) => (
-      <Skeleton key={index} className="h-10 w-full" />
-    ))}
-  </div>
-);

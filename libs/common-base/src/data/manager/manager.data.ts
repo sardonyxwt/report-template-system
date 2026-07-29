@@ -15,6 +15,7 @@ export const ManagerResponseSchema = z
 export const ManagerCreateRequestSchema = z
   .object({
     ...ManagerSchema.shape,
+    userId: ManagerSchema.shape.userId.positive(),
   })
   .meta({
     name: 'ManagerCreateRequestSchema',

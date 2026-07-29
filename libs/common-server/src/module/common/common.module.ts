@@ -23,9 +23,8 @@ import { WalkerService } from './service/walker.service';
 /**
  * Global shared infrastructure module.
  *
- * It provides logging, request ids, OpenAPI discovery, encryption, image
- * processing, scheduled jobs support, and Nest discovery helpers used by other
- * modules.
+ * It provides logging, request ids, OpenAPI discovery, scheduled-job support,
+ * and Nest discovery helpers used by other modules.
  */
 @Module({})
 export class CommonModule implements NestModule {

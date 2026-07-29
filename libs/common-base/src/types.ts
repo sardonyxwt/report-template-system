@@ -51,10 +51,14 @@ export type ApiEndpointAttachmentResponse = {
  */
 export type ApiEndpoint = {
   method: HttpMethod;
+  /** Streams response-schema values as Server-Sent Events. */
+  events?: boolean;
   path: string;
   // eslint-disable-next-line
   build?: (...args: any) => string;
   status?: number;
+  /** Static response headers applied by the server endpoint decorator. */
+  headers?: Record<string, string>;
   params?: ZodType;
   body?: ZodType;
   response: ZodType | ApiEndpointAttachmentResponse;

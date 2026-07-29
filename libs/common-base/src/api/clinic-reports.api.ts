@@ -18,6 +18,10 @@ export const createClinicReportsApi = (
       const { path, method } = endpoints.create;
       return request({ path, method, body });
     },
+    del: (id: number): Promise<ClinicReportResponse> => {
+      const { method, build } = endpoints.delete;
+      return request({ path: build(id), method });
+    },
     findMany: (
       body: ClinicReportAggregateRequest,
     ): Promise<ClinicReportsResponse> => {

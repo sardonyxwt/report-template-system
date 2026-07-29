@@ -18,21 +18,23 @@ export const createPatientReportsApi = (
       const { path, method } = endpoints.findMany;
       return request({ path, method, body });
     },
-    findOne: async (
-      reportId: number,
-    ): Promise<PatientReportResponse | null> => {
-      const { items, total } = await api.findMany({ where: { reportId } });
-      if (!total) {
-        return null;
-      }
-      const [element] = items;
-      return element;
-    },
     create: (
       body: PatientReportCreateRequest,
     ): Promise<PatientReportResponse> => {
       const { path, method } = endpoints.create;
       return request({ path, method, body });
+    },
+    downloadPdf: (reportId: number): Promise<Blob> => {
+      const { method, build } = endpoints.downloadPdf;
+      return request({
+        path: build(reportId),
+        method,
+        resTransformer: (res) => res.blob(),
+      });
+    },
+    del: (reportId: number): Promise<PatientReportResponse> => {
+      const { method, build } = endpoints.delete;
+      return request({ path: build(reportId), method });
     },
   };
 

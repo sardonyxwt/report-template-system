@@ -28,6 +28,10 @@ export const createPatientsApi = (
       const { path, method } = endpoints.create;
       return request({ path, method, body });
     },
+    del: (id: number): Promise<PatientResponse> => {
+      const { method, build } = endpoints.delete;
+      return request({ path: build(id), method });
+    },
   };
 
   return api;

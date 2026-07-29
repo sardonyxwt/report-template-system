@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   CanActivate,
   Delete,
   ExecutionContext,
   Get,
   Head,
+  Header,
   HttpCode,
   HttpStatus,
   NestInterceptor,
@@ -12,13 +14,15 @@ import {
   Put,
   UseGuards,
   UseInterceptors,
+  SetMetadata,
   applyDecorators,
   createParamDecorator,
 } from '@nestjs/common';
+import { SSE_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
-import { z, ZodType } from 'zod';
+import { z, ZodError, ZodType } from 'zod';
 import { ApiEndpoint, HttpMethod } from 'platform/common-base';
 import { JwtOptionalAuthGuard } from '../../auth/guard/auth-jwt-optional.guard';
 import { JwtRefreshAuthGuard } from '../../auth/guard/auth-jwt-refresh.guard';
@@ -36,6 +40,9 @@ type EndpointMetadataValue = {
   options: Options;
 };
 
+/**
+ * Stores endpoint contract metadata for runtime discovery and OpenAPI output.
+ */
 export const SetEndpointMetadata =
   Reflector.createDecorator<EndpointMetadataValue>({
     key: 'ENDPOINT_METADATA_KEY' as const,
@@ -89,12 +96,20 @@ export const Endpoint = (
 
     decorators.push(HttpCode(endpoint.status ?? HttpStatus.OK));
 
+    for (const [name, value] of Object.entries(endpoint.headers ?? {})) {
+      decorators.push(Header(name, value));
+    }
+
     if (endpoint.body) {
       decorators.push(SetBodySchemaMetadata(endpoint.body));
     }
 
     if (endpoint.params) {
       decorators.push(SetParamsSchemaMetadata(endpoint.params));
+    }
+
+    if (endpoint.events) {
+      decorators.push(SetMetadata(SSE_METADATA, true));
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -149,7 +164,15 @@ export const EndpointBody = createParamDecorator<unknown>((options, ctx) => {
 
   const req = ctx.switchToHttp().getRequest<Request>();
 
-  return schema.parse(req.body);
+  try {
+    return schema.parse(req.body);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new BadRequestException(error.issues);
+    }
+
+    throw error;
+  }
 });
 
 /**
@@ -162,7 +185,15 @@ export const EndpointParams = createParamDecorator<unknown>((options, ctx) => {
     ctx.getHandler(),
   );
 
-  return schema.parse(ctx.switchToHttp().getRequest<Request>().params);
+  try {
+    return schema.parse(ctx.switchToHttp().getRequest<Request>().params);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new BadRequestException(error.issues);
+    }
+
+    throw error;
+  }
 });
 
 /**

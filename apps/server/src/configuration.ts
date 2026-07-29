@@ -28,8 +28,19 @@ export const ConfigurationSchema = z.object({
   GOOGLE_CLIENT_ID: aliases.preprocessString(aliases.notEmptyString),
   GOOGLE_CLIENT_SECRET: aliases.preprocessString(aliases.notEmptyString),
   GOOGLE_REDIRECT_URL: aliases.preprocessString(aliases.notEmptyString),
+
+  OPENAI_API_KEY: aliases.preprocessString(aliases.notEmptyString),
+  OPENAI_MODEL: aliases.preprocessString(
+    aliases.notEmptyString.default('gpt-5.6'),
+  ),
+  OPENAI_TIMEOUT_MS: aliases.preprocessNumber(
+    z.number().int().positive().default(120_000),
+  ),
 });
 
+/**
+ * Validated server environment available through Nest `ConfigService`.
+ */
 export type Configuration = z.infer<typeof ConfigurationSchema>;
 
 /**

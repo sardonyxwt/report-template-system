@@ -1,10 +1,10 @@
-import { type UserAbilities } from 'platform/common-base';
 import {
   type PropsWithChildren,
   createContext,
   useContext,
   useMemo,
 } from 'react';
+import { type UserAbilities } from 'platform/common-base';
 import { useAuth } from './auth.provider';
 
 type BooleanAbilityGroup<Group> = {
@@ -47,8 +47,11 @@ export const AccessControlProvider = ({ children }: PropsWithChildren) => {
       patients: {
         create: (args) => abilities.patients.create(args).granted,
         read: (args) => abilities.patients.read(args).granted,
+        delete: (args) => abilities.patients.delete(args).granted,
       },
       templates: {
+        preview: () => abilities.templates.preview().granted,
+        aiEdit: () => abilities.templates.aiEdit().granted,
         create: (args) => abilities.templates.create(args).granted,
         read: (args) => abilities.templates.read(args).granted,
         update: (args) => abilities.templates.update(args).granted,
@@ -57,10 +60,12 @@ export const AccessControlProvider = ({ children }: PropsWithChildren) => {
       clinicReports: {
         create: (args) => abilities.clinicReports.create(args).granted,
         read: (args) => abilities.clinicReports.read(args).granted,
+        delete: (args) => abilities.clinicReports.delete(args).granted,
       },
       patientReports: {
         create: (args) => abilities.patientReports.create(args).granted,
         read: (args) => abilities.patientReports.read(args).granted,
+        delete: (args) => abilities.patientReports.delete(args).granted,
       },
     }),
     [abilities],

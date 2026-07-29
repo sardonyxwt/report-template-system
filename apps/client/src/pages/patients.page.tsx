@@ -1,9 +1,17 @@
 import { type ColumnDef } from '@tanstack/react-table';
-import { type PatientResponse } from 'platform/common-base';
-import { UserRole } from 'platform/prisma';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  type ClinicResponse,
+  type PatientResponse,
+  REFERENCE_ITEMS_LIMIT,
+} from 'platform/common-base';
+import { searchQueryOrUndef, UserRole } from 'platform/prisma';
 import { api } from '../api/client.api';
 import { PatientModal } from '../components/modal/patient.modal';
+import {
+  AsyncAutocompleteFilter,
+  ResourceSearchInput,
+} from '../components/resource-filters.component';
 import { ResourcePage } from '../components/resource-page.component';
 import { useAccessControl } from '../providers/access-control.provider';
 import { useAuthenticatedUser } from '../providers/auth.provider';
@@ -11,9 +19,30 @@ import { useAuthenticatedUser } from '../providers/auth.provider';
 export const PatientsPage = () => {
   const access = useAccessControl();
   const user = useAuthenticatedUser();
+  const [search, setSearch] = useState('');
+  const [clinic, setClinic] = useState<ClinicResponse>();
+  const loadClinics = useCallback(
+    async (clinicSearch: string) => {
+      const response = await api.clinic.findMany({
+        where: {
+          AND: [
+            user.role === UserRole.Admin ? {} : { managerId: user.id },
+            clinicSearch
+              ? {
+                  name: searchQueryOrUndef(clinicSearch),
+                }
+              : {},
+          ],
+        },
+        orderBy: { name: 'asc' },
+        take: REFERENCE_ITEMS_LIMIT,
+      });
+      return response.items;
+    },
+    [user.id, user.role],
+  );
   const columns = useMemo<ColumnDef<PatientResponse>[]>(
     () => [
-      { accessorKey: 'userId', header: 'User ID' },
       {
         id: 'name',
         header: 'Patient',
@@ -24,7 +53,11 @@ export const PatientsPage = () => {
         header: 'Email',
         cell: ({ row }) => row.original.user.email,
       },
-      { accessorKey: 'clinicId', header: 'Clinic ID' },
+      {
+        id: 'clinic',
+        header: 'Clinic',
+        cell: ({ row }) => row.original.clinic.name,
+      },
     ],
     [],
   );
@@ -35,17 +68,57 @@ export const PatientsPage = () => {
       description="View patients assigned to the clinics you can manage."
       itemName="patient"
       columns={columns}
-      load={async () => {
-        const response = await api.patient.findMany({
-          where:
-            user.role === UserRole.Admin
-              ? {}
-              : { clinic: { managerId: user.id } },
+      load={(pagination) => {
+        const accessWhere =
+          user.role === UserRole.Admin
+            ? {}
+            : { clinic: { managerId: user.id } };
+        const searchWhere = search
+          ? {
+              user: {
+                OR: [
+                  {
+                    fullName: searchQueryOrUndef(search),
+                  },
+                  {
+                    email: searchQueryOrUndef(search),
+                  },
+                ],
+              },
+            }
+          : {};
+
+        return api.patient.findMany({
+          where: {
+            AND: [
+              accessWhere,
+              searchWhere,
+              clinic ? { clinicId: clinic.id } : {},
+            ],
+          },
           orderBy: { userId: 'asc' },
-          take: 500,
+          ...pagination,
         });
-        return response.items;
       }}
+      loadKey={`${search}|${clinic?.id ?? ''}`}
+      filters={
+        <>
+          <ResourceSearchInput
+            value={search}
+            placeholder="Search by name or email"
+            onChange={setSearch}
+          />
+          <AsyncAutocompleteFilter
+            value={clinic}
+            placeholder="Search clinic"
+            emptyLabel="No clinics found."
+            load={loadClinics}
+            getKey={(option) => String(option.id)}
+            getLabel={(option) => option.name}
+            onChange={setClinic}
+          />
+        </>
+      }
       getRowId={(patient) => String(patient.userId)}
       createAction={
         access.patients.create({
@@ -58,6 +131,12 @@ export const PatientsPage = () => {
             )
           : undefined
       }
+      canDelete={(patient) =>
+        access.patients.delete({
+          managerId: patient.clinic.managerId,
+        })
+      }
+      deleteAction={(patient) => api.patient.del(patient.userId)}
     />
   );
 };

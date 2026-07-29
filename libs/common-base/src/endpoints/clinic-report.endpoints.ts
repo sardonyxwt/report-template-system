@@ -1,10 +1,12 @@
 import { ZodType } from 'zod';
+import { ID_PATH_PARAM_NAME } from '../constants';
 import {
   ClinicReportAggregateRequestSchema,
   ClinicReportCreateRequestSchema,
   ClinicReportResponseSchema,
   ClinicReportsResponseSchema,
 } from '../data/clinic-report/clinic-report.data';
+import { ActionNumberIdParamsSchema } from '../data/common/common.data';
 import { HttpMethod, HttpStatus } from '../enums';
 import { ApiEndpoints } from '../types';
 
@@ -17,6 +19,14 @@ export const createClinicReportEndpoints = (base = '') =>
       path: `${base}/${root}`,
       status: HttpStatus.Created,
       body: ClinicReportCreateRequestSchema as ZodType,
+      response: ClinicReportResponseSchema as ZodType,
+      guards: ['auth'],
+    },
+    delete: {
+      method: HttpMethod.Delete,
+      path: `${base}/${root}/:${ID_PATH_PARAM_NAME}`,
+      build: (id: number) => `${base}/${root}/${id}`,
+      params: ActionNumberIdParamsSchema as ZodType,
       response: ClinicReportResponseSchema as ZodType,
       guards: ['auth'],
     },

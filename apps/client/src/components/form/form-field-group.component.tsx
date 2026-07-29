@@ -13,7 +13,7 @@ export const FormFieldGroup = ({
   error,
   children,
 }: FormFieldGroupProps) => (
-  <div className="grid gap-2">
+  <div className="grid content-start gap-2">
     <label className="text-sm font-medium" htmlFor={htmlFor}>
       {label}
     </label>

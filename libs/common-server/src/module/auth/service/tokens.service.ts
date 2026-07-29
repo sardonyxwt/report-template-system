@@ -9,6 +9,9 @@ import {
 } from 'platform/common-base';
 import { AUTH_MODULE_OPTIONS, AuthModuleOptions } from '../auth.options';
 
+/**
+ * Verified JWT payload with required issued-at and expiration claims.
+ */
 export type JwtStrategyPayloadWithInfo = JwtStrategyPayload &
   Required<Pick<JwtPayload, 'iat' | 'exp'>>;
 

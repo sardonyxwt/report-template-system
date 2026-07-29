@@ -1,5 +1,17 @@
 import { TemplateCreateRequest } from 'platform/common-base';
 
+const blocks = [
+  'cover',
+  'summary',
+  'story',
+  'goals',
+  'plan',
+  'orders',
+  'timeline',
+  'coach',
+  'healthDeepDive',
+] as const;
+
 export const templateFixtures = {
   template(
     clinicId: number,
@@ -9,13 +21,11 @@ export const templateFixtures = {
       clinicId,
       name: 'Test Template',
       data: {
-        blocks: [
-          {
-            type: 'summary',
-            enabled: true,
-            template: '<section>{{content}}</section>',
-          },
-        ],
+        blocks: blocks.map((type) => ({
+          type,
+          enabled: true,
+          template: `<section>${type}</section>`,
+        })),
       },
       ...overrides,
     } satisfies TemplateCreateRequest;

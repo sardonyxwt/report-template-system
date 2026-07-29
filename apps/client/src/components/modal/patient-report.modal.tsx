@@ -1,18 +1,24 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
+import { toast } from 'sonner';
 import {
   type ClinicReportResponse,
   type PatientReportCreateRequest,
   PatientReportCreateRequestSchema,
+  REFERENCE_ITEMS_LIMIT,
   type TemplateResponse,
 } from 'platform/common-base';
 import { UserRole } from 'platform/prisma';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { Controller, useForm, useWatch } from 'react-hook-form';
-import { toast } from 'sonner';
 import { api } from '../../api/client.api';
 import { useRequest } from '../../hooks/request.hook';
 import { useAuthenticatedUser } from '../../providers/auth.provider';
+import {
+  formatDateTime,
+  formatOptionLabel,
+} from '../../utils/formatting.utils';
 import { getErrorMessage } from '../../utils/request.utils';
+import { EntityAutocomplete } from '../form/entity-autocomplete.component';
 import { FormFieldGroup } from '../form/form-field-group.component';
 import { SubmitLabel } from '../form/submit-label.component';
 import { Button } from '../shadcn/ui/button';
@@ -25,13 +31,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../shadcn/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../shadcn/ui/select';
 
 export const PatientReportModal = ({
   trigger,
@@ -55,7 +54,7 @@ export const PatientReportModal = ({
             ? {}
             : { clinic: { managerId: user.id } },
         orderBy: { createdAt: 'desc' },
-        take: 250,
+        take: REFERENCE_ITEMS_LIMIT,
       }),
       api.template.findMany({
         where:
@@ -63,7 +62,7 @@ export const PatientReportModal = ({
             ? {}
             : { clinic: { managerId: user.id } },
         orderBy: { name: 'asc' },
-        take: 250,
+        take: REFERENCE_ITEMS_LIMIT,
       }),
     ]);
     return { reports: reports.items, templates: templates.items };
@@ -105,6 +104,7 @@ export const PatientReportModal = ({
           </DialogDescription>
         </DialogHeader>
         <form
+          noValidate
           className="grid gap-4"
           onSubmit={form.handleSubmit(
             (data) => void createRequest.fetch(data).catch(() => undefined),
@@ -119,26 +119,30 @@ export const PatientReportModal = ({
               control={form.control}
               name="reportId"
               render={({ field }) => (
-                <Select
-                  value={field.value ? String(field.value) : ''}
-                  onValueChange={(value) => {
-                    field.onChange(Number(value));
+                <EntityAutocomplete
+                  id="patient-report-source"
+                  value={(referencesRequest.data?.reports ?? []).find(
+                    (report) => report.id === field.value,
+                  )}
+                  items={referencesRequest.data?.reports ?? []}
+                  placeholder="Search for a clinic report…"
+                  emptyLabel="No clinic reports found."
+                  loading={referencesRequest.isLoading}
+                  invalid={Boolean(form.formState.errors.reportId)}
+                  getKey={(report: ClinicReportResponse) => String(report.id)}
+                  getLabel={(report: ClinicReportResponse) =>
+                    `${formatOptionLabel(
+                      report.patient.user.fullName,
+                      report.patient.user.email,
+                    )} · ${report.clinic.name} · ${formatDateTime(
+                      report.createdAt,
+                    )}`
+                  }
+                  onChange={(report) => {
+                    field.onChange(report?.id ?? 0);
                     form.setValue('templateId', 0);
                   }}
-                >
-                  <SelectTrigger id="patient-report-source" className="w-full">
-                    <SelectValue placeholder="Select clinic report" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(referencesRequest.data?.reports ?? []).map(
-                      (report: ClinicReportResponse) => (
-                        <SelectItem key={report.id} value={String(report.id)}>
-                          Report #{report.id} · Patient #{report.patientId}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
+                />
               )}
             />
           </FormFieldGroup>
@@ -151,25 +155,25 @@ export const PatientReportModal = ({
               control={form.control}
               name="templateId"
               render={({ field }) => (
-                <Select
-                  value={field.value ? String(field.value) : ''}
+                <EntityAutocomplete
+                  id="patient-report-template"
+                  value={templates.find(
+                    (template) => template.id === field.value,
+                  )}
+                  items={templates}
+                  placeholder={
+                    reportId
+                      ? 'Search for a compatible template…'
+                      : 'Select a clinic report first'
+                  }
+                  emptyLabel="No compatible templates found."
+                  loading={referencesRequest.isLoading}
                   disabled={!reportId}
-                  onValueChange={(value) => field.onChange(Number(value))}
-                >
-                  <SelectTrigger
-                    id="patient-report-template"
-                    className="w-full"
-                  >
-                    <SelectValue placeholder="Select compatible template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.map((template: TemplateResponse) => (
-                      <SelectItem key={template.id} value={String(template.id)}>
-                        {template.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  invalid={Boolean(form.formState.errors.templateId)}
+                  getKey={(template: TemplateResponse) => String(template.id)}
+                  getLabel={(template: TemplateResponse) => template.name}
+                  onChange={(template) => field.onChange(template?.id ?? 0)}
+                />
               )}
             />
           </FormFieldGroup>

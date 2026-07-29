@@ -12,6 +12,7 @@ Platform is an Nx monorepo with a NestJS backend API, React client, shared API c
 - Validation and contracts: Zod 4, custom aliases in `platform/zod`, and generated Prisma Zod schemas.
 - API documentation: OpenAPI 3.1 generated from endpoint metadata and Zod schemas.
 - Authentication: JWT, refresh JWT, signed cookies, Passport strategies, and Google OAuth.
+- AI integration: OpenAI Responses API with structured outputs, tool calling, and image inputs.
 - Testing: Jest 30, ts-jest, Supertest, serial test runner.
 - Code quality: ESLint flat config, Prettier, import ordering, unused import checks.
 - Observability: Nest logger integration with structured application logging.
@@ -37,7 +38,13 @@ apps/
 
 libs/
   common-base/            Shared API contracts, endpoint maps, DTO schemas, utilities, abilities
-  common-server/          Server-only modules, decorators, guards, interceptors, services
+  common-server/          Server-only infrastructure
+    src/module/
+      auth/               JWT, OAuth session, cookie, guard, and interceptor support
+      common/             Logging, request context, decorators, and OpenAPI discovery
+      open-ai/            Configured OpenAI SDK client
+      prisma/             Prisma lifecycle, transactions, logging, and error mapping
+      report-rendering/   Handlebars HTML plus Puppeteer image/PDF rendering
   prisma/                 Prisma schema, generated client, include helpers, migrations
   zod/                    Shared Zod aliases, helpers, and error utilities
 
@@ -74,6 +81,7 @@ HOST
 PORT
 JWT_REFRESH_SECRET
 JWT_SECRET
+OPENAI_API_KEY
 ```
 
 Optional server values supported by the schema include:
@@ -82,6 +90,8 @@ Optional server values supported by the schema include:
 LOGGER_LEVEL
 JWT_SECRET_EXPIRES
 JWT_REFRESH_SECRET_EXPIRES
+OPENAI_MODEL
+OPENAI_TIMEOUT_MS
 ```
 
 Local tooling is also commonly used:
@@ -90,9 +100,56 @@ Local tooling is also commonly used:
 DATABASE_PORT
 POSTGRES_PASSWORD
 POSTGRES_USER
+PUPPETEER_EXECUTABLE_PATH
 ```
 
 `DATABASE_URL` must point to the PostgreSQL database started by `compose.dev.yml`. `DATABASE_PORT`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` are used by that compose file.
+
+### OpenAI Configuration
+
+The template editor uses the OpenAI API to update one report block at a time.
+Create an API key in the
+[OpenAI dashboard](https://platform.openai.com/api-keys), then add it only to
+the server-side root `.env` file:
+
+```dotenv
+OPENAI_API_KEY=<your-project-api-key>
+OPENAI_MODEL=gpt-5.6
+OPENAI_TIMEOUT_MS=120000
+```
+
+`OPENAI_API_KEY` is required for the server to start. `OPENAI_MODEL` defaults to
+`gpt-5.6`, and `OPENAI_TIMEOUT_MS` defaults to `120000`. The official
+[OpenAI quickstart](https://developers.openai.com/api/docs/quickstart#create-and-export-an-api-key)
+also documents creating and exporting API keys.
+
+Never commit the key, expose it through a `VITE_*` variable, or send it to the
+browser. The React client calls the authenticated server endpoint, and only the
+server communicates with OpenAI. The key must belong to an OpenAI API project
+that can use the configured model; it is separate from browser or ChatGPT
+authentication. If `OPENAI_MODEL` is overridden, the selected model must
+support the Responses API, function calling, structured outputs, and image
+inputs used by this feature.
+
+AI-assisted editing sends the current template HTML, the selected block type,
+the user's editing prompt, and synthetic `REPORT_DATA_EXAMPLE` fixture data to
+OpenAI. It does not send a persisted patient report. The feature chains
+Responses API calls while the template modal remains open; closing the modal
+clears that context from client state. Do not place patient-identifying or other
+sensitive data directly in a template or AI editing prompt.
+
+The server currently uses stored Responses and `previous_response_id` to
+continue the modal-scoped conversation. Closing the modal does not delete those
+responses from OpenAI; the provider's
+[Responses retention policy](https://developers.openai.com/api/docs/guides/conversation-state#passing-context-from-the-previous-response)
+still applies. One edit can make multiple model and image-input calls while the
+AI validates the block, so usage is charged to the API project according to
+[OpenAI API pricing](https://developers.openai.com/api/docs/pricing).
+
+The visual inspection tool renders a block through Puppeteer. On macOS the
+server automatically checks the standard Google Chrome installation path. In
+other environments, set `PUPPETEER_EXECUTABLE_PATH` when Puppeteer cannot
+resolve a browser executable.
 
 The browser client reads the root `.env` file and validates:
 
@@ -126,6 +183,7 @@ Before running the server tests, create `.env.test` in the workspace root:
 HOST=localhost
 PORT=60001
 DATABASE_URL=postgresql://<user>:<password>@localhost:<port>/<test-database>
+OPENAI_API_KEY=test-placeholder
 ```
 
 The test configuration is loaded after `.env` and `.env.local`, so these values
@@ -137,6 +195,10 @@ production database here.
 `.env.test` is ignored by Git and must be created locally for each development
 environment.
 
+The placeholder key is sufficient for test suites that do not make live OpenAI
+requests. AI integrations should be mocked in automated tests; do not use a
+production OpenAI key in `.env.test`.
+
 ## First Run
 
 1. Install dependencies:
@@ -145,7 +207,8 @@ environment.
 npm install
 ```
 
-2. Create or update the root `.env` file with local development values.
+2. Create or update the root `.env` file with local development values,
+   including `OPENAI_API_KEY`.
 
 3. Start PostgreSQL:
 
@@ -181,6 +244,11 @@ The server binds to `HOST` and `PORT` from `.env`. Useful development endpoints:
 
 - `GET /status` checks server status.
 - `GET /docs/openapi.json` returns the generated OpenAPI document.
+- `POST /template/preview` renders unsaved template data with synthetic report
+  data.
+- `POST /template/ai-edit` uses OpenAI to update one unsaved template block for
+  authenticated administrators and managers.
+- `GET /patient-report/:id/pdf` generates an authorized patient report PDF.
 
 ## Common Commands
 
@@ -191,8 +259,7 @@ npm run server:serve
 # Start the React SPA in development mode
 npm run client:serve
 
-# Type-check and build the React SPA
-npm run client:typecheck
+# Build the React SPA
 npm run client:build
 
 # Build the server
@@ -223,7 +290,8 @@ npx nx run platform/prisma:reset
 npm run prisma:studio
 ```
 
-Note: `platform/server:test` depends on `platform/prisma:reset`, so it resets the configured test database before running.
+Note: the server test global setup runs `platform/prisma:reset`, so
+`npm run server:test` resets the configured test database before running.
 
 ## Documentation
 
@@ -243,8 +311,12 @@ http://$HOST:$PORT/docs/openapi.json
 
 The backend is split into two layers:
 
-- `libs/common-server/src/module/*` contains infrastructure modules: authentication, Prisma access, common services, guards, interceptors, and middleware.
-- `apps/server/src/future/*` contains domain-facing API modules such as `auth`, `user`, `manager`, `docs`, and `status`.
+- `libs/common-server/src/module/*` contains reusable infrastructure for
+  authentication, request/logging context, OpenAPI discovery, OpenAI access,
+  Prisma, and report rendering.
+- `apps/server/src/future/*` contains the domain-facing `auth`, `clinic`,
+  `clinic-report`, `docs`, `manager`, `patient`, `patient-report`, `status`,
+  `template`, and `user` modules.
 
 The API contract source of truth lives mostly in `libs/common-base`:
 
@@ -254,13 +326,35 @@ The API contract source of truth lives mostly in `libs/common-base`:
 - `api/*.api.ts` exposes typed client helpers built from the endpoint definitions.
 - `abilities.ts` defines authorization rules used by server services.
 
-`libs/common-server/src/decorators.ts` connects these contracts to NestJS:
+`libs/common-server/src/module/common/decorators/endpoint.decorators.ts`
+connects these contracts to NestJS and is re-exported through
+`platform/common-server`:
 
 - `@Endpoint(...)` maps a shared endpoint definition to a Nest route.
 - `@EndpointBody()` parses and validates the request body with the endpoint Zod schema.
 - `@EndpointParams()` parses and validates route params.
 - Zod response schemas are used by the validation interceptor.
 - Endpoint metadata is collected by `DocsService` to build `/docs/openapi.json`.
+
+### Template Rendering And AI Editing
+
+Report output follows one shared rendering path:
+
+1. `ReportHtmlService` matches enabled template blocks to report data by block
+   type, compiles their Handlebars markup, and wraps the result in a
+   self-contained printable document.
+2. Template preview uses `REPORT_DATA_EXAMPLE`, so it can validate unsaved
+   markup without reading a persisted patient report.
+3. `TemplateAiEditorService` sends only the active block, the surrounding
+   template, the user prompt, and synthetic example data through
+   `OpenAiService`. Its server-side tools can render HTML or capture a PNG, and
+   the final markup is validated by rendering it again.
+4. Patient report download combines the stored report and template through
+   `ReportHtmlService`, then `ReportPdfService` converts that HTML to an A4 PDF.
+
+Puppeteer-based image and PDF rendering disables browser JavaScript and aborts
+outbound page requests. The shared services live in
+`libs/common-server/src/module/report-rendering/`.
 
 Prisma owns the persistent model in `libs/prisma/src/schema.prisma`. Generated Prisma and Zod artifacts are intentionally ignored by lint rules and should be regenerated instead of edited by hand.
 
@@ -286,7 +380,8 @@ Shared contracts:
 
 Server module:
 
-- `apps/server/src/future/user/user.module.ts` registers the controller and service and applies JSON body parsing.
+- `apps/server/src/future/user/user.module.ts` registers the controller and
+  service.
 - `apps/server/src/future/user/user.api.ts` maps endpoint definitions to controller methods.
 - `apps/server/src/future/user/user.service.ts` contains business logic, Prisma calls, and authorization checks.
 
@@ -313,6 +408,9 @@ When adding a similar entity, follow this sequence:
 ## Development Notes
 
 - Prefer contract-first changes: update `libs/common-base` endpoint and schema definitions before wiring server handlers.
+- Keep exported server declarations and public class methods documented with
+  concise JSDoc that explains behavior, authorization boundaries, or important
+  failure modes.
 - Do not expose sensitive fields in response schemas. The user schemas intentionally omit auth tokens.
 - Keep Prisma-generated code and generated Zod schemas out of manual edits.
 - Use `PrismaService.run(...)` or `runAll(...)` for transactional service work when the existing service style does so.

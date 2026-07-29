@@ -32,11 +32,12 @@ export const request: ApiRequest = async <Body, ResponseData>(
   ensureBrowserCookieHeaderCompatibility(response.headers);
   const contentType = response.headers.get('content-type');
   const isJson = contentType?.includes('application/json');
-  const responseBody = props.resTransformer
-    ? await props.resTransformer(response)
-    : isJson
-      ? await response.json()
-      : await response.text();
+  const responseBody =
+    props.resTransformer && response.ok
+      ? await props.resTransformer(response)
+      : isJson
+        ? await response.json()
+        : await response.text();
 
   if (!response.ok) {
     throw new ApiError(response.status, response.statusText, responseBody);

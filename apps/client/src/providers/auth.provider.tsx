@@ -1,11 +1,4 @@
 import {
-  type ProfileResponse,
-  type UserAbilities,
-  getUserAbilities,
-  userResponseToJwtStrategyPayload,
-} from 'platform/common-base';
-import { AuthProviderType } from 'platform/prisma';
-import {
   type PropsWithChildren,
   createContext,
   useCallback,
@@ -14,6 +7,13 @@ import {
   useMemo,
   useState,
 } from 'react';
+import {
+  type ProfileResponse,
+  type UserAbilities,
+  getUserAbilities,
+  userResponseToJwtStrategyPayload,
+} from 'platform/common-base';
+import { AuthProviderType } from 'platform/prisma';
 import { api } from '../api/client.api';
 
 type AuthStatus = 'checking' | 'guest' | 'authenticated';

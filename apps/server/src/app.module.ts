@@ -17,8 +17,11 @@ import {
   AuthModuleOptions,
   CommonModule,
   CommonModuleOptions,
+  OpenAiModule,
+  OpenAiModuleOptions,
   PrismaModule,
   PrismaModuleOptions,
+  ReportRenderingModule,
 } from 'platform/common-server';
 import { validateConfiguration, Configuration } from './configuration';
 import { AuthFutureModule } from './future/auth/auth.module';
@@ -72,6 +75,17 @@ export const AppConfigModule = ConfigModule.forRoot({
         databaseUrl: config.getOrThrow('DATABASE_URL'),
       }),
     }),
+    OpenAiModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (
+        config: ConfigService<Configuration>,
+      ): OpenAiModuleOptions => ({
+        apiKey: config.getOrThrow('OPENAI_API_KEY'),
+        model: config.getOrThrow('OPENAI_MODEL'),
+        timeoutMs: config.getOrThrow('OPENAI_TIMEOUT_MS'),
+      }),
+    }),
+    ReportRenderingModule.forRoot(),
     AuthModule.registerAsync({
       inject: [ConfigService],
       useFactory: (

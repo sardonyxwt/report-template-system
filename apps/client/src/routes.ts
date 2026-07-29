@@ -11,8 +11,8 @@ export const routePaths = {
   patients: '/app/patients',
   templates: '/app/templates',
   clinicReports: '/app/clinic-reports',
+  clinicReport: '/app/clinic-reports/:reportId',
   patientReports: '/app/patient-reports',
-  patientReport: '/app/patient-reports/:reportId',
 } as const;
 
 export const routes = {
@@ -28,9 +28,9 @@ export const routes = {
     patients: () => routePaths.patients,
     templates: () => routePaths.templates,
     clinicReports: () => routePaths.clinicReports,
+    clinicReport: (reportId: number) =>
+      `${routePaths.clinicReports}/${reportId}`,
     patientReports: () => routePaths.patientReports,
-    patientReport: (reportId: number) =>
-      `${routePaths.patientReports}/${reportId}`,
   },
 } as const;
 
@@ -51,9 +51,9 @@ type AppSectionDefinition = {
 
 export const appSections: AppSectionDefinition[] = [
   {
-    section: 'clinics',
-    path: routes.app.clinics(),
-    canAccess: (access, user) => access.clinics.read({ managerId: user.id }),
+    section: 'users',
+    path: routes.app.users(),
+    canAccess: (access) => access.users.read({}),
   },
   {
     section: 'managers',
@@ -61,14 +61,14 @@ export const appSections: AppSectionDefinition[] = [
     canAccess: (access) => access.managers.create() || access.managers.delete(),
   },
   {
-    section: 'users',
-    path: routes.app.users(),
-    canAccess: (access) => access.users.read({}),
-  },
-  {
     section: 'patients',
     path: routes.app.patients(),
     canAccess: (access, user) => access.patients.read({ managerId: user.id }),
+  },
+  {
+    section: 'clinics',
+    path: routes.app.clinics(),
+    canAccess: (access, user) => access.clinics.read({ managerId: user.id }),
   },
   {
     section: 'templates',
