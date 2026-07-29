@@ -13,8 +13,6 @@ import {
 } from 'platform/common-base';
 import { AI_REASONING_EFFORT_OPTIONS } from '../../constants';
 import { clientEnvironment } from '../../env/client.env';
-import { type RequestStatus } from '../../hooks/request.hook';
-import { getErrorMessage } from '../../utils/request.utils';
 import { cn } from '../shadcn/lib/utils';
 import { Button } from '../shadcn/ui/button';
 import {
@@ -35,39 +33,31 @@ import {
 } from '../shadcn/ui/select';
 import { Textarea } from '../shadcn/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../shadcn/ui/tooltip';
-import { RequestStatusNotification } from './request-status-notification.component';
+
+type TemplateAiSubmitParams = {
+  prompt: string;
+  model: string;
+  reasoningEffort: TemplateAiReasoningEffort;
+  visualValidation: boolean;
+  speed: boolean;
+};
 
 /**
- * Reusable prompt, progress, and submit UI for template AI editing.
- *
- * The parent supplies the editing scope and applies the returned template data.
+ * Prompt + model controls for template AI editing.
+ * Generation progress lives next to the parent tabs via generationState.
  */
 export const TemplateAiEditor = ({
-  active,
   busy,
-  error,
-  loadingMessage,
+  disabled = false,
   placeholder,
-  status,
-  successMessage,
   ariaLabel,
   onSubmit,
 }: {
-  active: boolean;
   busy: boolean;
-  error?: unknown;
-  loadingMessage: string;
+  disabled?: boolean;
   placeholder: string;
-  status: RequestStatus;
-  successMessage: string;
   ariaLabel: string;
-  onSubmit: (
-    prompt: string,
-    model: string,
-    reasoningEffort: TemplateAiReasoningEffort,
-    visualValidation: boolean,
-    speed: boolean,
-  ) => Promise<void>;
+  onSubmit: (params: TemplateAiSubmitParams) => Promise<void>;
 }) => {
   const models = clientEnvironment.openAiModelAllowlist;
   const [prompt, setPrompt] = useState('');
@@ -76,7 +66,6 @@ export const TemplateAiEditor = ({
     useState<TemplateAiReasoningEffort>('low');
   const [speed, setSpeed] = useState(false);
   const [visualValidation, setVisualValidation] = useState(false);
-  const editorStatus = active ? status : 'initial';
   const reasoningEffortOption = AI_REASONING_EFFORT_OPTIONS.find(
     ({ value }) => value === reasoningEffort,
   );
@@ -90,48 +79,42 @@ export const TemplateAiEditor = ({
       <Textarea
         rows={4}
         value={prompt}
+        disabled={busy}
         aria-label={ariaLabel}
         placeholder={placeholder}
         onChange={(event) => setPrompt(event.target.value)}
       />
-      <div className="flex min-w-0 flex-col items-stretch gap-2 md:flex-row md:justify-between md:gap-3">
-        <div className="flex min-w-0 flex-col items-stretch gap-2 md:flex-row">
-          <Select value={modelId} disabled={busy} onValueChange={setModelId}>
-            <SelectTrigger
-              aria-label="AI model"
-              className="h-auto min-w-0 max-w-full justify-start md:flex-none"
-            >
-              <BotIcon className="text-muted-foreground" />
-              <SelectValue placeholder="Select model" />
-            </SelectTrigger>
-            <SelectContent align="start" className="max-w-[calc(100vw-2rem)]">
-              {models.map((model) => (
-                <SelectItem key={model} value={model}>
-                  {model}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <RequestStatusNotification
-            status={editorStatus}
-            loadingMessage={loadingMessage}
-            successMessage={successMessage}
-            errorMessage={
-              active && error !== undefined ? getErrorMessage(error) : undefined
-            }
-            className="min-w-0 max-w-full md:flex-none"
-          />
-        </div>
+      <div className="flex min-w-0 flex-col items-stretch gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
+        <Select
+          value={modelId}
+          disabled={busy || disabled}
+          onValueChange={setModelId}
+        >
+          <SelectTrigger
+            aria-label="AI model"
+            className="h-auto min-w-0 max-w-full justify-start md:w-auto md:max-w-xs md:flex-none"
+          >
+            <BotIcon className="text-muted-foreground" />
+            <SelectValue placeholder="Select model" />
+          </SelectTrigger>
+          <SelectContent align="start" className="max-w-[calc(100vw-2rem)]">
+            {models.map((model) => (
+              <SelectItem key={model} value={model}>
+                {model}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="flex min-w-0 flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
                 variant="outline"
-                disabled={busy}
+                disabled={busy || disabled}
                 aria-label="AI reasoning effort"
                 title="AI reasoning effort"
-                className="min-w-36 flex-1 justify-start md:min-w-40 md:flex-none"
+                className="w-auto shrink-0 justify-start"
               >
                 <GaugeIcon className="text-muted-foreground" />
                 <span className="text-muted-foreground">Effort</span>
@@ -179,7 +162,7 @@ export const TemplateAiEditor = ({
                 type="button"
                 variant="outline"
                 size="icon"
-                disabled={busy}
+                disabled={busy || disabled}
                 aria-label="Toggle PNG visual validation"
                 aria-pressed={visualValidation}
                 className={cn(
@@ -204,7 +187,7 @@ export const TemplateAiEditor = ({
                 type="button"
                 variant="outline"
                 size="icon"
-                disabled={busy}
+                disabled={busy || disabled}
                 aria-label="Toggle AI Speed"
                 aria-pressed={speed}
                 className={cn(
@@ -226,20 +209,18 @@ export const TemplateAiEditor = ({
           <Button
             type="button"
             className="shrink-0"
-            disabled={!prompt.trim() || !modelId || busy}
+            disabled={!prompt.trim() || !modelId || busy || disabled}
             onClick={() => {
-              try {
-                void onSubmit(
-                  prompt,
-                  modelId,
-                  reasoningEffort,
-                  visualValidation,
-                  speed,
-                );
-                setPrompt('');
-              } catch {
-                // ignore
-              }
+              const submittedPrompt = prompt;
+              void onSubmit({
+                prompt: submittedPrompt,
+                model: modelId,
+                reasoningEffort,
+                visualValidation,
+                speed,
+              })
+                .then(() => setPrompt(''))
+                .catch(() => undefined);
             }}
           >
             <SendIcon />
