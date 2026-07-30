@@ -57,12 +57,10 @@ export const TemplatePreviewFrame = ({
     }
   }, [active, contentRevision, refresh]);
 
-  // Reserve height before the fetch effect runs so the dialog does not
-  // collapse to a short loading stub when switching into Preview.
-  const showInitialLoading =
-    active && !previewRequest.data && !previewRequest.isError;
-  const showRefreshLoading = previewRequest.isLoading && !!previewRequest.data;
-  const contentMinHeight = Math.max(previewHeight, fallbackHeight);
+  const hasPreview = !!previewRequest.data && !previewRequest.isError;
+  const showLoading =
+    active &&
+    (previewRequest.isLoading || (!hasPreview && !previewRequest.isError));
 
   return (
     <div className="min-w-0 max-w-full overflow-hidden rounded-xl border bg-muted/40">
@@ -83,37 +81,34 @@ export const TemplatePreviewFrame = ({
           Refresh
         </Button>
       </div>
+
       <div
-        className="relative w-full min-w-0 max-w-full overflow-x-auto p-4"
-        style={{ minHeight: contentMinHeight }}
+        className="relative flex w-full min-w-0 items-center justify-center overflow-x-auto p-4"
+        style={{ minHeight: fallbackHeight }}
       >
-        {(showInitialLoading || showRefreshLoading) && (
+        {showLoading && (
           <div
             className={cn(
-              'grid place-items-center text-sm text-muted-foreground',
-              showRefreshLoading
-                ? 'absolute inset-4 z-10 rounded-lg bg-background/70 backdrop-blur-[1px]'
-                : undefined,
+              'flex items-center justify-center text-sm text-muted-foreground',
+              hasPreview
+                ? 'absolute inset-0 z-10 bg-background/70 backdrop-blur-[1px]'
+                : 'absolute inset-0',
             )}
-            style={
-              showInitialLoading ? { minHeight: contentMinHeight } : undefined
-            }
           >
             {loadingLabel}
           </div>
         )}
+
         {previewRequest.isError && !previewRequest.isLoading && (
-          <div
-            className="grid place-content-center text-center"
-            style={{ minHeight: contentMinHeight }}
-          >
+          <div className="max-w-md text-center">
             <p className="font-medium">{errorTitle}</p>
             <p className="mt-1 text-sm text-destructive">
               {getErrorMessage(previewRequest.error)}
             </p>
           </div>
         )}
-        {previewRequest.data && !previewRequest.isError && (
+
+        {hasPreview && (
           <iframe
             title={title}
             sandbox="allow-same-origin"
@@ -121,7 +116,7 @@ export const TemplatePreviewFrame = ({
             srcDoc={previewRequest.data}
             style={{
               height: previewHeight,
-              opacity: showRefreshLoading ? 0.45 : 1,
+              opacity: previewRequest.isLoading ? 0.45 : 1,
             }}
             className={cn(
               'mx-auto block w-[210mm] max-w-none bg-white',

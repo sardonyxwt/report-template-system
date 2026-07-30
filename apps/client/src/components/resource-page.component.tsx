@@ -65,6 +65,7 @@ export const ResourcePage = <Data,>({
     changePage,
     data,
     loading,
+    longLoading,
     loadRequest,
     pageCount,
     pageIndex,
@@ -224,10 +225,10 @@ export const ResourcePage = <Data,>({
           </div>
           <div
             className={`absolute inset-0 flex min-h-0 flex-1 flex-col transition-opacity duration-200 ease-in-out ${
-              loading ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              longLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
-            aria-hidden={!loading}
-            inert={!loading}
+            aria-hidden={!longLoading}
+            inert={!longLoading}
           >
             <Empty className="min-h-64 rounded-xl border bg-card" role="status">
               <EmptyHeader>

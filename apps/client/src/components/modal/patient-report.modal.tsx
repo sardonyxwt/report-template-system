@@ -72,7 +72,7 @@ export const PatientReportModal = ({
   useDialogReset({
     open,
     reset: form.reset,
-    getValues: () => ({ reportId: 0, templateId: 0 }),
+    getResetValues: () => ({ reportId: 0, templateId: 0 }),
     onOpen: () => void referencesRequest.fetch(),
   });
 

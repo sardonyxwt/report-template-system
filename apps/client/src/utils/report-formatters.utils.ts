@@ -1,4 +1,4 @@
-export const formatReportField = (field: string): string =>
+export const formatLabel = (field: string): string =>
   field
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, (letter) => letter.toUpperCase());

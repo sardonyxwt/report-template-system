@@ -15,6 +15,7 @@ export const useRequest = <Arguments extends unknown[], ResponseData>(
   const requestRef = useRef(request);
   const optionsRef = useRef(options);
   const lastArgumentsRef = useRef<Arguments | undefined>(undefined);
+  const requestIdRef = useRef(0);
   const [status, setStatus] = useState<RequestStatus>('initial');
   const [data, setData] = useState<ResponseData>();
   const [error, setError] = useState<unknown>();
@@ -31,19 +32,20 @@ export const useRequest = <Arguments extends unknown[], ResponseData>(
 
   const fetch = useCallback(async (...args: Arguments) => {
     lastArgumentsRef.current = args;
+    const requestId = ++requestIdRef.current;
     setStatus('loading');
     setError(undefined);
 
     try {
       const response = await requestRef.current(...args);
-      if (mountedRef.current) {
+      if (mountedRef.current && requestId === requestIdRef.current) {
         setData(response);
         setStatus('success');
         optionsRef.current.onSuccess?.(response, args);
       }
       return response;
     } catch (requestError) {
-      if (mountedRef.current) {
+      if (mountedRef.current && requestId === requestIdRef.current) {
         setError(requestError);
         setStatus('error');
         optionsRef.current.onError?.(requestError, args);

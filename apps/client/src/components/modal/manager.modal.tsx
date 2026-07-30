@@ -56,7 +56,7 @@ export const ManagerModal = ({
   useDialogReset({
     open,
     reset: form.reset,
-    getValues: () => ({ userId: 0 }),
+    getResetValues: () => ({ userId: 0 }),
     onOpen: () => void usersRequest.fetch(),
   });
 

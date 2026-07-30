@@ -90,7 +90,7 @@ export const ClinicModal = ({
   useDialogReset({
     open,
     reset: form.reset,
-    getValues: () =>
+    getResetValues: () =>
       createDefaultValues(clinic, canAssignManager ? undefined : user.id),
     onOpen: () => {
       if (canAssignManager) {

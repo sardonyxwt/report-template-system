@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
+import { formatLabel } from '../../../utils/report-formatters.utils';
 import { TemplateAiEditor } from '../../form/template-ai-editor.component';
 import { cn } from '../../shadcn/lib/utils';
 import { Checkbox } from '../../shadcn/ui/checkbox';
@@ -18,7 +19,7 @@ import { useTemplateAiGeneration } from './template-ai-generation.provider';
 import { TemplateGenerationStatus } from './template-generation-status.component';
 import { TemplatePreviewFrame } from './template-preview-frame.component';
 import { type TemplateBlock, type TemplateForm } from './template.types';
-import { formatBlockType, PRESERVED_TAB_CONTENT_CLASS } from './template.utils';
+import { PRESERVED_TAB_CONTENT_CLASS } from './template.utils';
 
 export const TemplateBlockCard = ({
   block,
@@ -77,7 +78,7 @@ export const TemplateBlockCard = ({
         <button
           type="button"
           disabled={editingLocked}
-          aria-label={`Reorder ${formatBlockType(block.type)} block`}
+          aria-label={`Reorder ${formatLabel(block.type)} block`}
           className="touch-none cursor-grab rounded-md p-1 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
           {...attributes}
           {...listeners}
@@ -91,7 +92,7 @@ export const TemplateBlockCard = ({
           className="flex min-w-0 flex-1 items-center gap-2 self-stretch text-left font-medium outline-none"
           onClick={() => setExpanded((value) => !value)}
         >
-          <span className="truncate">{formatBlockType(block.type)}</span>
+          <span className="truncate">{formatLabel(block.type)}</span>
           <ChevronDownIcon
             className={cn(
               'size-4 text-muted-foreground transition-transform',
@@ -135,7 +136,7 @@ export const TemplateBlockCard = ({
           >
             <div className="mb-1 flex min-w-0 flex-wrap items-center gap-2">
               <TabsList
-                aria-label={`${formatBlockType(block.type)} editing method`}
+                aria-label={`${formatLabel(block.type)} editing method`}
               >
                 <TabsTrigger value="manual">
                   <PencilIcon />
@@ -163,7 +164,7 @@ export const TemplateBlockCard = ({
             >
               <Textarea
                 rows={6}
-                aria-label={`${formatBlockType(block.type)} template content`}
+                aria-label={`${formatLabel(block.type)} template content`}
                 aria-invalid={Boolean(
                   form.formState.errors.data?.blocks?.[index]?.template,
                 )}
@@ -184,7 +185,7 @@ export const TemplateBlockCard = ({
               <TemplateAiEditor
                 busy={generationBusy}
                 disabled={!canGenerate(block.type)}
-                ariaLabel={`${formatBlockType(block.type)} AI instructions`}
+                ariaLabel={`${formatLabel(block.type)} AI instructions`}
                 placeholder="Describe how you want AI to update this block…"
                 onSubmit={(params) => generate(block.type, params)}
               />
@@ -199,7 +200,7 @@ export const TemplateBlockCard = ({
                 active={editorMode === 'preview'}
                 getData={() => form.getValues('data')}
                 blockType={block.type}
-                title={`${formatBlockType(block.type)} block preview`}
+                title={`${formatLabel(block.type)} block preview`}
                 loadingLabel="Generating block preview…"
                 errorTitle="Block preview could not be generated"
               />

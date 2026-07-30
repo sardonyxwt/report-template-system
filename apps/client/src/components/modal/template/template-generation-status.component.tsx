@@ -1,8 +1,8 @@
+import { formatLabel } from '../../../utils/report-formatters.utils';
 import { getErrorMessage } from '../../../utils/request.utils';
 import { RequestStatusNotification } from '../../form/request-status-notification.component';
 import { useTemplateAiGeneration } from './template-ai-generation.provider';
 import { type AiGenerationScope } from './template.types';
-import { formatBlockType } from './template.utils';
 
 export const TemplateGenerationStatus = ({
   scope,
@@ -16,7 +16,7 @@ export const TemplateGenerationStatus = ({
   const successMessage =
     scope === 'template'
       ? 'Template updated.'
-      : `${formatBlockType(scope)} block updated.`;
+      : `${formatLabel(scope)} block updated.`;
 
   return (
     <RequestStatusNotification

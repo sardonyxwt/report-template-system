@@ -1,4 +1,4 @@
-import { ReportDataSchema } from 'platform/prisma';
+import { ReportDataSchema, type ReportData } from 'platform/prisma';
 
 export const reportFixture = {
   default: ReportDataSchema.parse({
@@ -363,5 +363,39 @@ export const reportFixture = {
         },
       },
     ],
+  }),
+  /**
+   * Builds demo report data for a newly created clinic report.
+   *
+   * Uses the shared report fixture and personalizes the cover block for the
+   * selected patient and clinic.
+   */
+  createReportDataForPatient: (
+    patientName: string,
+    clinicName: string,
+  ): ReportData => ({
+    blocks: reportFixture.default.blocks.map((block) => {
+      if (block.type !== 'cover') {
+        return block;
+      }
+
+      return {
+        ...block,
+        value: {
+          ...block.value,
+          title: `${patientName}’s Health Report`,
+          clinic: clinicName,
+          generatedAt: new Date().toISOString(),
+          patient: {
+            ...block.value.patient,
+            name: patientName,
+          },
+          preparedBy: {
+            ...block.value.preparedBy,
+            details: [clinicName],
+          },
+        },
+      };
+    }),
   }),
 };

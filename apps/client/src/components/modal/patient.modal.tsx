@@ -64,7 +64,7 @@ export const PatientModal = ({
   useDialogReset({
     open,
     reset: form.reset,
-    getValues: () => ({ clinicId: 0, email: '' }),
+    getResetValues: () => ({ clinicId: 0, email: '' }),
     onOpen: () => {
       void clinicsRequest.fetch();
       if (admin) {

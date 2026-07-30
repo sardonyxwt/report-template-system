@@ -78,22 +78,24 @@ export class TemplateService {
       templateId: data.id,
     });
 
-    const template = await this.prisma.tx.template.findFirstOrThrow({
+    const updatingTemplate = await this.prisma.tx.template.findFirstOrThrow({
       where: { id: data.id },
       select: { clinic: { select: { managerId: true } } },
     });
 
     this.session.abilityGuard('templates', 'update', {
-      managerId: template.clinic.managerId,
+      managerId: updatingTemplate.clinic.managerId,
     });
 
     this.logger.log('Update template started', TemplateService.name, {
       templateId: data.id,
     });
 
+    const { ...templateFields } = data;
+
     const updatedTemplate = await this.prisma.tx.template.update({
-      where: { id: data.id },
-      data,
+      where: { id: templateFields.id },
+      data: { ...templateFields },
       include: includeTemplate,
     });
 

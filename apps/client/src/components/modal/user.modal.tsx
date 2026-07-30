@@ -69,7 +69,7 @@ export const UserModal = ({
   useDialogReset({
     open,
     reset: form.reset,
-    getValues: () => createDefaultValues(user),
+    getResetValues: () => createDefaultValues(user),
   });
 
   return (

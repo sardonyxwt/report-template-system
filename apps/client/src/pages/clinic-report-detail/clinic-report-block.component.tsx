@@ -17,7 +17,7 @@ import { type ClinicReportResponse } from 'platform/common-base';
 import { Badge } from '../../components/shadcn/ui/badge';
 import { Card, CardContent } from '../../components/shadcn/ui/card';
 import { Separator } from '../../components/shadcn/ui/separator';
-import { formatReportField } from '../../utils/report-formatters.utils';
+import { formatLabel } from '../../utils/report-formatters.utils';
 
 type ReportBlock = ClinicReportResponse['data']['blocks'][number];
 
@@ -390,7 +390,7 @@ export const ClinicReportBlock = ({ block }: { block: ReportBlock }) => {
                         values.length > 0 ? (
                           <div key={key} className="rounded-xl border p-4">
                             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              {formatReportField(key)}
+                              {formatLabel(key)}
                             </p>
                             <ul className="mt-3 grid gap-2">
                               {values.map((value) => (
@@ -444,7 +444,7 @@ export const ClinicReportBlock = ({ block }: { block: ReportBlock }) => {
                     </div>
                     <Badge variant="outline" className={`w-fit ${statusStyle}`}>
                       <HeartPulseIcon />
-                      {formatReportField(domain.status)}
+                      {formatLabel(domain.status)}
                     </Badge>
                   </div>
 
@@ -458,7 +458,7 @@ export const ClinicReportBlock = ({ block }: { block: ReportBlock }) => {
                           >
                             <p className="text-lg font-semibold">{value}</p>
                             <p className="mt-1 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">
-                              {formatReportField(label)}
+                              {formatLabel(label)}
                             </p>
                           </div>
                         ),
@@ -482,7 +482,7 @@ export const ClinicReportBlock = ({ block }: { block: ReportBlock }) => {
                                   {biomarker.relevancy}
                                 </Badge>
                                 <Badge variant="outline">
-                                  {formatReportField(biomarker.classification)}
+                                  {formatLabel(biomarker.classification)}
                                 </Badge>
                               </div>
                             </div>
@@ -509,5 +509,21 @@ export const ClinicReportBlock = ({ block }: { block: ReportBlock }) => {
           </div>
         </ReportSection>
       );
+
+    default: {
+      return (
+        <ReportSection
+          icon={<ActivityIcon />}
+          eyebrow="Unsupported"
+          title="Unknown report section"
+        >
+          <Surface>
+            <p className="text-sm text-muted-foreground">
+              This report contains an unsupported block type.
+            </p>
+          </Surface>
+        </ReportSection>
+      );
+    }
   }
 };

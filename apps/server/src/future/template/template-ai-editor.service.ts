@@ -202,7 +202,7 @@ export class TemplateAiEditorService {
   ): AsyncGenerator<TemplateAiEditEvent> {
     yield this.createEvent({ type: 'initial' });
 
-    const input = this.openAi.parsOpenAiInput(
+    const input = this.openAi.parseOpenAiInput(
       {
         request: request.prompt,
         scope: request.blockType

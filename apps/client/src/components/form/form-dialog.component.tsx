@@ -23,20 +23,26 @@ export const useFormDialog = ({ onSaved }: { onSaved: () => void }) => {
   return { open, setOpen, closeAndSave };
 };
 
+/**
+ * Resets a form each time a dialog opens.
+ *
+ * `getResetValues` and `onOpen` are stored in refs so callers can pass inline
+ * lambdas without re-running this effect on every parent render while open.
+ */
 export const useDialogReset = <T,>({
   open,
   reset,
-  getValues,
+  getResetValues,
   onOpen,
 }: {
   open: boolean;
   reset: (values: T) => void;
-  getValues: () => T;
+  getResetValues: () => T;
   onOpen?: () => void;
 }) => {
-  const getValuesRef = useRef(getValues);
+  const getResetValuesRef = useRef(getResetValues);
   const onOpenRef = useRef(onOpen);
-  getValuesRef.current = getValues;
+  getResetValuesRef.current = getResetValues;
   onOpenRef.current = onOpen;
 
   useEffect(() => {
@@ -44,7 +50,7 @@ export const useDialogReset = <T,>({
       return;
     }
 
-    reset(getValuesRef.current());
+    reset(getResetValuesRef.current());
     onOpenRef.current?.();
   }, [open, reset]);
 };

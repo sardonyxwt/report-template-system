@@ -59,10 +59,24 @@ export const loadPatients = async (
 export const loadPatientsByClinic = async (
   user: ScopedUser,
   clinicId: number,
+  search = '',
 ): Promise<PatientResponse[]> => {
   const response = await api.patient.findMany({
     where: {
-      AND: [managedViaClinicWhere(user), { clinicId }],
+      AND: [
+        managedViaClinicWhere(user),
+        { clinicId },
+        search
+          ? {
+              user: {
+                OR: [
+                  { fullName: searchQueryOrUndef(search) },
+                  { email: searchQueryOrUndef(search) },
+                ],
+              },
+            }
+          : {},
+      ],
     },
     orderBy: { userId: 'asc' },
     take: REFERENCE_ITEMS_LIMIT,

@@ -32,3 +32,5 @@ export * from './include/patient.include';
 export * from './include/patient-report.include';
 export * from './include/template.include';
 export * from './include/user.include';
+
+import './prisma.types';

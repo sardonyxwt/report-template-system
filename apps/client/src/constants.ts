@@ -1,6 +1,7 @@
 import { type TemplateAiReasoningEffort } from 'platform/common-base';
 
 export const SEARCH_DEBOUNCE_DELAY_MS = 300;
+export const REQUEST_LONG_LOADING_MS = 300;
 export const REQUEST_SUCCESS_VISIBILITY_MS = 1_500;
 
 export const DEFAULT_ERROR_MESSAGE = 'Something went wrong.';

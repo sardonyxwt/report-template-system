@@ -101,12 +101,6 @@ export const normalizeTemplateData = (data: TemplateData): TemplateData => {
     ),
   };
 };
-
-export const formatBlockType = (value: string) =>
-  value
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, (letter) => letter.toUpperCase());
-
 export const getBlockPreviewHeight = (document: Document | null): number => {
   const block = document?.querySelector<HTMLElement>('[data-report-block]');
 

@@ -13,6 +13,7 @@ import {
 } from 'platform/common-base';
 import { AI_REASONING_EFFORT_OPTIONS } from '../../constants';
 import { clientEnvironment } from '../../env/client.env';
+import { type TemplateAiSubmitParams } from '../modal/template/template.types';
 import { cn } from '../shadcn/lib/utils';
 import { Button } from '../shadcn/ui/button';
 import {
@@ -26,14 +27,6 @@ import {
 } from '../shadcn/ui/dropdown-menu';
 import { Textarea } from '../shadcn/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../shadcn/ui/tooltip';
-
-type TemplateAiSubmitParams = {
-  prompt: string;
-  model: string;
-  reasoningEffort: TemplateAiReasoningEffort;
-  visualValidation: boolean;
-  speed: boolean;
-};
 
 /**
  * Prompt + model controls for template AI editing.

@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useCallback, useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
+import { useDebouncedCallback } from 'use-debounce';
 import {
   type ClinicReportCreateRequest,
   ClinicReportCreateRequestSchema,
@@ -10,6 +11,7 @@ import {
   isWho,
 } from 'platform/common-base';
 import { api } from '../../api/client.api';
+import { SEARCH_DEBOUNCE_DELAY_MS } from '../../constants';
 import { useRequest } from '../../hooks/request.hook';
 import { useAuthenticatedUser } from '../../providers/auth.provider';
 import { formatOptionLabel } from '../../utils/formatting.utils';
@@ -41,8 +43,8 @@ export const ClinicReportModal = ({
   });
   const clinicId = useWatch({ control: form.control, name: 'clinicId' });
   const clinicsRequest = useRequest(() => loadClinics(user));
-  const patientsRequest = useRequest((id: number) =>
-    loadPatientsByClinic(user, id),
+  const patientsRequest = useRequest((id: number, search?: string) =>
+    loadPatientsByClinic(user, id, search ?? ''),
   );
 
   const createRequest = useRequest(api.clinicReport.create, {
@@ -53,16 +55,27 @@ export const ClinicReportModal = ({
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
+  const loadPatients = useCallback(
+    (search = '') => {
+      if (clinicId) {
+        void patientsRequest.fetch(clinicId, search);
+      }
+    },
+    [clinicId, patientsRequest.fetch],
+  );
+
+  const searchPatients = useDebouncedCallback((search: string) => {
+    loadPatients(search.trim());
+  }, SEARCH_DEBOUNCE_DELAY_MS);
+
   useEffect(() => {
-    if (clinicId) {
-      void patientsRequest.fetch(clinicId);
-    }
-  }, [clinicId, patientsRequest.fetch]);
+    loadPatients();
+  }, [loadPatients]);
 
   useDialogReset({
     open,
     reset: form.reset,
-    getValues: () => ({ clinicId: 0, patientId: 0 }),
+    getResetValues: () => ({ clinicId: 0, patientId: 0 }),
     onOpen: () => {
       void clinicsRequest.fetch();
     },
@@ -105,9 +118,6 @@ export const ClinicReportModal = ({
               onChange={(clinic) => {
                 field.onChange(clinic?.id ?? 0);
                 form.setValue('patientId', 0);
-                if (clinic?.id) {
-                  void patientsRequest.fetch(clinic.id);
-                }
               }}
             />
           )}
@@ -133,10 +143,12 @@ export const ClinicReportModal = ({
               loading={patientsRequest.isLoading}
               disabled={!clinicId}
               invalid={Boolean(form.formState.errors.patientId)}
+              externalFiltering
               getKey={(patient: PatientResponse) => String(patient.userId)}
               getLabel={(patient: PatientResponse) =>
                 formatOptionLabel(patient.user.fullName, patient.user.email)
               }
+              onSearchChange={searchPatients}
               onChange={(patient) => field.onChange(patient?.userId ?? 0)}
             />
           )}

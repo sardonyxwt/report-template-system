@@ -99,7 +99,7 @@ export class OpenAiService {
    * The transformer receives the schema output, so Zod coercions and
    * transformations are reflected in its input type.
    */
-  public parsOpenAiInput<Schema extends z.ZodType, Result>(
+  public parseOpenAiInput<Schema extends z.ZodType, Result>(
     input: unknown,
     schema: Schema,
     transformer: (input: z.output<Schema>) => Result,
