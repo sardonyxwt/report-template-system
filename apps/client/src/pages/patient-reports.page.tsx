@@ -1,13 +1,13 @@
 import { type ColumnDef } from '@tanstack/react-table';
 import { DownloadIcon } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import {
   type PatientReportResponse,
   type PatientResponse,
-  REFERENCE_ITEMS_LIMIT,
+  isWho,
 } from 'platform/common-base';
-import { searchQueryOrUndef, UserRole } from 'platform/prisma';
+import { UserRole } from 'platform/prisma';
 import { api } from '../api/client.api';
 import { PatientReportModal } from '../components/modal/patient-report.modal';
 import { AsyncAutocompleteFilter } from '../components/resource-filters.component';
@@ -17,7 +17,35 @@ import { useRequest } from '../hooks/request.hook';
 import { useAccessControl } from '../providers/access-control.provider';
 import { useAuthenticatedUser } from '../providers/auth.provider';
 import { formatDateTime, formatOptionLabel } from '../utils/formatting.utils';
+import { loadPatients } from '../utils/reference-loaders.utils';
 import { getErrorMessage } from '../utils/request.utils';
+
+const columns: ColumnDef<PatientReportResponse>[] = [
+  {
+    id: 'patient',
+    header: 'Patient',
+    cell: ({ row }) =>
+      formatOptionLabel(
+        row.original.report.patient.user.fullName,
+        row.original.report.patient.user.email,
+      ),
+  },
+  {
+    id: 'clinic',
+    header: 'Clinic',
+    cell: ({ row }) => row.original.report.clinic.name,
+  },
+  {
+    id: 'template',
+    header: 'Template',
+    cell: ({ row }) => row.original.template.name,
+  },
+  {
+    id: 'created',
+    header: 'Created',
+    cell: ({ row }) => formatDateTime(row.original.report.createdAt),
+  },
+];
 
 export const PatientReportsPage = () => {
   const access = useAccessControl();
@@ -33,66 +61,6 @@ export const PatientReportsPage = () => {
       onError: (error) => toast.error(getErrorMessage(error)),
     },
   );
-  const columns = useMemo<ColumnDef<PatientReportResponse>[]>(
-    () => [
-      {
-        id: 'patient',
-        header: 'Patient',
-        cell: ({ row }) =>
-          formatOptionLabel(
-            row.original.report.patient.user.fullName,
-            row.original.report.patient.user.email,
-          ),
-      },
-      {
-        id: 'clinic',
-        header: 'Clinic',
-        cell: ({ row }) => row.original.report.clinic.name,
-      },
-      {
-        id: 'template',
-        header: 'Template',
-        cell: ({ row }) => row.original.template.name,
-      },
-      {
-        id: 'created',
-        header: 'Created',
-        cell: ({ row }) => formatDateTime(row.original.report.createdAt),
-      },
-    ],
-    [],
-  );
-  const loadPatients = useCallback(
-    async (search: string) => {
-      const response = await api.patient.findMany({
-        where: {
-          AND: [
-            user.role === UserRole.Admin
-              ? {}
-              : { clinic: { managerId: user.id } },
-            search
-              ? {
-                  user: {
-                    OR: [
-                      {
-                        fullName: searchQueryOrUndef(search),
-                      },
-                      {
-                        email: searchQueryOrUndef(search),
-                      },
-                    ],
-                  },
-                }
-              : {},
-          ],
-        },
-        orderBy: { userId: 'asc' },
-        take: REFERENCE_ITEMS_LIMIT,
-      });
-      return response.items;
-    },
-    [user.id, user.role],
-  );
 
   return (
     <ResourcePage
@@ -103,7 +71,7 @@ export const PatientReportsPage = () => {
         api.patientReport.findMany({
           where: {
             AND: [
-              user.role === UserRole.Admin
+              isWho(user.role).isAdmin
                 ? {}
                 : user.role === UserRole.Manager
                   ? { report: { clinic: { managerId: user.id } } }
@@ -121,7 +89,7 @@ export const PatientReportsPage = () => {
           <AsyncAutocompleteFilter
             value={patient}
             placeholder="Search patient by name or email"
-            load={loadPatients}
+            load={(search) => loadPatients(user, search)}
             getKey={(item) => String(item.userId)}
             getLabel={(item) =>
               formatOptionLabel(item.user.fullName, item.user.email)
@@ -142,9 +110,7 @@ export const PatientReportsPage = () => {
             variant="ghost"
             aria-label="Download patient report PDF"
             disabled={downloadRequest.isLoading}
-            onClick={() =>
-              void downloadRequest.fetch(report).catch(() => undefined)
-            }
+            onClick={() => void downloadRequest.fetch(report)}
           >
             <DownloadIcon />
           </Button>

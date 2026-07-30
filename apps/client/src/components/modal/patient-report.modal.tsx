@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import {
@@ -9,7 +9,6 @@ import {
   REFERENCE_ITEMS_LIMIT,
   type TemplateResponse,
 } from 'platform/common-base';
-import { UserRole } from 'platform/prisma';
 import { api } from '../../api/client.api';
 import { useRequest } from '../../hooks/request.hook';
 import { useAuthenticatedUser } from '../../providers/auth.provider';
@@ -18,19 +17,14 @@ import {
   formatOptionLabel,
 } from '../../utils/formatting.utils';
 import { getErrorMessage } from '../../utils/request.utils';
+import { managedViaClinicWhere } from '../../utils/scope.utils';
 import { EntityAutocomplete } from '../form/entity-autocomplete.component';
-import { Button } from '../shadcn/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '../shadcn/ui/dialog';
+  FormDialog,
+  useDialogReset,
+  useFormDialog,
+} from '../form/form-dialog.component';
 import { Field, FieldError, FieldLabel } from '../shadcn/ui/field';
-import { Spinner } from '../shadcn/ui/spinner';
 
 export const PatientReportModal = ({
   trigger,
@@ -39,8 +33,8 @@ export const PatientReportModal = ({
   trigger: ReactNode;
   onSaved: () => void;
 }) => {
-  const [open, setOpen] = useState(false);
   const user = useAuthenticatedUser();
+  const { open, setOpen, closeAndSave } = useFormDialog({ onSaved });
   const form = useForm<PatientReportCreateRequest>({
     resolver: zodResolver(PatientReportCreateRequestSchema),
     defaultValues: { reportId: 0, templateId: 0 },
@@ -49,18 +43,12 @@ export const PatientReportModal = ({
   const referencesRequest = useRequest(async () => {
     const [reports, templates] = await Promise.all([
       api.clinicReport.findMany({
-        where:
-          user.role === UserRole.Admin
-            ? {}
-            : { clinic: { managerId: user.id } },
+        where: managedViaClinicWhere(user),
         orderBy: { createdAt: 'desc' },
         take: REFERENCE_ITEMS_LIMIT,
       }),
       api.template.findMany({
-        where:
-          user.role === UserRole.Admin
-            ? {}
-            : { clinic: { managerId: user.id } },
+        where: managedViaClinicWhere(user),
         orderBy: { name: 'asc' },
         take: REFERENCE_ITEMS_LIMIT,
       }),
@@ -70,126 +58,95 @@ export const PatientReportModal = ({
   const createRequest = useRequest(api.patientReport.create, {
     onSuccess: () => {
       toast.success('Patient report created.');
-      setOpen(false);
-      onSaved();
+      closeAndSave();
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
   const selectedReport = referencesRequest.data?.reports.find(
     (report) => report.id === reportId,
   );
-  const templates = useMemo(
-    () =>
-      (referencesRequest.data?.templates ?? []).filter(
-        (template) => template.clinicId === selectedReport?.clinicId,
-      ),
-    [referencesRequest.data?.templates, selectedReport?.clinicId],
+  const templates = (referencesRequest.data?.templates ?? []).filter(
+    (template) => template.clinicId === selectedReport?.clinicId,
   );
 
-  useEffect(() => {
-    if (open) {
-      form.reset({ reportId: 0, templateId: 0 });
-      void referencesRequest.fetch().catch(() => undefined);
-    }
-  }, [form, open, referencesRequest.fetch]);
+  useDialogReset({
+    open,
+    reset: form.reset,
+    getValues: () => ({ reportId: 0, templateId: 0 }),
+    onOpen: () => void referencesRequest.fetch(),
+  });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create patient report</DialogTitle>
-          <DialogDescription>
-            Bind a clinic report to a template from the same clinic.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          noValidate
-          className="grid gap-4"
-          onSubmit={form.handleSubmit(
-            (data) => void createRequest.fetch(data).catch(() => undefined),
+    <FormDialog
+      trigger={trigger}
+      title="Create patient report"
+      description="Bind a clinic report to a template from the same clinic."
+      submitLabel="Create patient report"
+      loading={createRequest.isLoading}
+      open={open}
+      onOpenChange={setOpen}
+      form={form}
+      onSubmit={(data) => void createRequest.fetch(data)}
+    >
+      <Field data-invalid={Boolean(form.formState.errors.reportId)}>
+        <FieldLabel htmlFor="patient-report-source">Clinic report</FieldLabel>
+        <Controller
+          control={form.control}
+          name="reportId"
+          render={({ field }) => (
+            <EntityAutocomplete
+              id="patient-report-source"
+              value={(referencesRequest.data?.reports ?? []).find(
+                (report) => report.id === field.value,
+              )}
+              items={referencesRequest.data?.reports ?? []}
+              placeholder="Search for a clinic report…"
+              emptyLabel="No clinic reports found."
+              loading={referencesRequest.isLoading}
+              invalid={Boolean(form.formState.errors.reportId)}
+              getKey={(report: ClinicReportResponse) => String(report.id)}
+              getLabel={(report: ClinicReportResponse) =>
+                `${formatOptionLabel(
+                  report.patient.user.fullName,
+                  report.patient.user.email,
+                )} · ${report.clinic.name} · ${formatDateTime(report.createdAt)}`
+              }
+              onChange={(report) => {
+                field.onChange(report?.id ?? 0);
+                form.setValue('templateId', 0);
+              }}
+            />
           )}
-        >
-          <Field data-invalid={Boolean(form.formState.errors.reportId)}>
-            <FieldLabel htmlFor="patient-report-source">
-              Clinic report
-            </FieldLabel>
-            <Controller
-              control={form.control}
-              name="reportId"
-              render={({ field }) => (
-                <EntityAutocomplete
-                  id="patient-report-source"
-                  value={(referencesRequest.data?.reports ?? []).find(
-                    (report) => report.id === field.value,
-                  )}
-                  items={referencesRequest.data?.reports ?? []}
-                  placeholder="Search for a clinic report…"
-                  emptyLabel="No clinic reports found."
-                  loading={referencesRequest.isLoading}
-                  invalid={Boolean(form.formState.errors.reportId)}
-                  getKey={(report: ClinicReportResponse) => String(report.id)}
-                  getLabel={(report: ClinicReportResponse) =>
-                    `${formatOptionLabel(
-                      report.patient.user.fullName,
-                      report.patient.user.email,
-                    )} · ${report.clinic.name} · ${formatDateTime(
-                      report.createdAt,
-                    )}`
-                  }
-                  onChange={(report) => {
-                    field.onChange(report?.id ?? 0);
-                    form.setValue('templateId', 0);
-                  }}
-                />
-              )}
+        />
+        <FieldError errors={[form.formState.errors.reportId]} />
+      </Field>
+      <Field data-invalid={Boolean(form.formState.errors.templateId)}>
+        <FieldLabel htmlFor="patient-report-template">Template</FieldLabel>
+        <Controller
+          control={form.control}
+          name="templateId"
+          render={({ field }) => (
+            <EntityAutocomplete
+              id="patient-report-template"
+              value={templates.find((template) => template.id === field.value)}
+              items={templates}
+              placeholder={
+                reportId
+                  ? 'Search for a compatible template…'
+                  : 'Select a clinic report first'
+              }
+              emptyLabel="No compatible templates found."
+              loading={referencesRequest.isLoading}
+              disabled={!reportId}
+              invalid={Boolean(form.formState.errors.templateId)}
+              getKey={(template: TemplateResponse) => String(template.id)}
+              getLabel={(template: TemplateResponse) => template.name}
+              onChange={(template) => field.onChange(template?.id ?? 0)}
             />
-            <FieldError errors={[form.formState.errors.reportId]} />
-          </Field>
-          <Field data-invalid={Boolean(form.formState.errors.templateId)}>
-            <FieldLabel htmlFor="patient-report-template">Template</FieldLabel>
-            <Controller
-              control={form.control}
-              name="templateId"
-              render={({ field }) => (
-                <EntityAutocomplete
-                  id="patient-report-template"
-                  value={templates.find(
-                    (template) => template.id === field.value,
-                  )}
-                  items={templates}
-                  placeholder={
-                    reportId
-                      ? 'Search for a compatible template…'
-                      : 'Select a clinic report first'
-                  }
-                  emptyLabel="No compatible templates found."
-                  loading={referencesRequest.isLoading}
-                  disabled={!reportId}
-                  invalid={Boolean(form.formState.errors.templateId)}
-                  getKey={(template: TemplateResponse) => String(template.id)}
-                  getLabel={(template: TemplateResponse) => template.name}
-                  onChange={(template) => field.onChange(template?.id ?? 0)}
-                />
-              )}
-            />
-            <FieldError errors={[form.formState.errors.templateId]} />
-          </Field>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={createRequest.isLoading}>
-              {createRequest.isLoading && <Spinner data-icon="inline-start" />}
-              Create patient report
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          )}
+        />
+        <FieldError errors={[form.formState.errors.templateId]} />
+      </Field>
+    </FormDialog>
   );
 };

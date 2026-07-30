@@ -47,12 +47,10 @@ export const TemplatePreviewFrame = ({
     setPreviewHeight(
       fullPage ? A4_PAGE_HEIGHT_PX : TEMPLATE_BLOCK_PREVIEW_FALLBACK_HEIGHT_PX,
     );
-    void previewRequest
-      .fetch({
-        data: getDataRef.current(),
-        ...(blockType ? { blockType } : {}),
-      })
-      .catch(() => undefined);
+    void previewRequest.fetch({
+      data: getDataRef.current(),
+      ...(blockType ? { blockType } : {}),
+    });
   }, [blockType, fullPage, previewRequest.fetch]);
 
   useEffect(() => {

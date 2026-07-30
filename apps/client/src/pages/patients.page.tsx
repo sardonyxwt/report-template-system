@@ -1,10 +1,6 @@
 import { type ColumnDef } from '@tanstack/react-table';
-import { useCallback, useMemo, useState } from 'react';
-import {
-  type ClinicResponse,
-  type PatientResponse,
-  REFERENCE_ITEMS_LIMIT,
-} from 'platform/common-base';
+import { useState } from 'react';
+import { type PatientResponse } from 'platform/common-base';
 import { searchQueryOrUndef, UserRole } from 'platform/prisma';
 import { api } from '../api/client.api';
 import { PatientModal } from '../components/modal/patient.modal';
@@ -15,52 +11,33 @@ import {
 import { ResourcePage } from '../components/resource-page.component';
 import { useAccessControl } from '../providers/access-control.provider';
 import { useAuthenticatedUser } from '../providers/auth.provider';
+import { loadClinics } from '../utils/reference-loaders.utils';
+import { managedViaClinicWhere } from '../utils/scope.utils';
+
+const columns: ColumnDef<PatientResponse>[] = [
+  {
+    id: 'name',
+    header: 'Patient',
+    cell: ({ row }) => row.original.user.fullName || '—',
+  },
+  {
+    id: 'email',
+    header: 'Email',
+    cell: ({ row }) => row.original.user.email,
+  },
+  {
+    id: 'clinic',
+    header: 'Clinic',
+    cell: ({ row }) => row.original.clinic.name,
+  },
+];
 
 export const PatientsPage = () => {
   const access = useAccessControl();
   const user = useAuthenticatedUser();
   const [search, setSearch] = useState('');
-  const [clinic, setClinic] = useState<ClinicResponse>();
-  const loadClinics = useCallback(
-    async (clinicSearch: string) => {
-      const response = await api.clinic.findMany({
-        where: {
-          AND: [
-            user.role === UserRole.Admin ? {} : { managerId: user.id },
-            clinicSearch
-              ? {
-                  name: searchQueryOrUndef(clinicSearch),
-                }
-              : {},
-          ],
-        },
-        orderBy: { name: 'asc' },
-        take: REFERENCE_ITEMS_LIMIT,
-      });
-      return response.items;
-    },
-    [user.id, user.role],
-  );
-  const columns = useMemo<ColumnDef<PatientResponse>[]>(
-    () => [
-      {
-        id: 'name',
-        header: 'Patient',
-        cell: ({ row }) => row.original.user.fullName || '—',
-      },
-      {
-        id: 'email',
-        header: 'Email',
-        cell: ({ row }) => row.original.user.email,
-      },
-      {
-        id: 'clinic',
-        header: 'Clinic',
-        cell: ({ row }) => row.original.clinic.name,
-      },
-    ],
-    [],
-  );
+  const [clinic, setClinic] =
+    useState<Awaited<ReturnType<typeof loadClinics>>[number]>();
 
   return (
     <ResourcePage
@@ -68,20 +45,12 @@ export const PatientsPage = () => {
       itemName="patient"
       columns={columns}
       load={(pagination) => {
-        const accessWhere =
-          user.role === UserRole.Admin
-            ? {}
-            : { clinic: { managerId: user.id } };
         const searchWhere = search
           ? {
               user: {
                 OR: [
-                  {
-                    fullName: searchQueryOrUndef(search),
-                  },
-                  {
-                    email: searchQueryOrUndef(search),
-                  },
+                  { fullName: searchQueryOrUndef(search) },
+                  { email: searchQueryOrUndef(search) },
                 ],
               },
             }
@@ -90,7 +59,7 @@ export const PatientsPage = () => {
         return api.patient.findMany({
           where: {
             AND: [
-              accessWhere,
+              managedViaClinicWhere(user),
               searchWhere,
               clinic ? { clinicId: clinic.id } : {},
             ],
@@ -111,7 +80,7 @@ export const PatientsPage = () => {
             value={clinic}
             placeholder="Search clinic"
             emptyLabel="No clinics found."
-            load={loadClinics}
+            load={(clinicSearch) => loadClinics(user, clinicSearch)}
             getKey={(option) => String(option.id)}
             getLabel={(option) => option.name}
             onChange={setClinic}

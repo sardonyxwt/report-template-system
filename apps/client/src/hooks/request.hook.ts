@@ -48,7 +48,6 @@ export const useRequest = <Arguments extends unknown[], ResponseData>(
         setStatus('error');
         optionsRef.current.onError?.(requestError, args);
       }
-      throw requestError;
     }
   }, []);
 

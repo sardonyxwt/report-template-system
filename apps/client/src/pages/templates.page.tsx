@@ -1,12 +1,8 @@
 import { type ColumnDef } from '@tanstack/react-table';
 import { PencilIcon } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
-import {
-  type ClinicResponse,
-  type TemplateResponse,
-  REFERENCE_ITEMS_LIMIT,
-} from 'platform/common-base';
-import { searchQueryOrUndef, UserRole } from 'platform/prisma';
+import { useState } from 'react';
+import { type TemplateResponse } from 'platform/common-base';
+import { searchQueryOrUndef } from 'platform/prisma';
 import { api } from '../api/client.api';
 import { TemplateModal } from '../components/modal/template.modal';
 import {
@@ -17,43 +13,24 @@ import { ResourcePage } from '../components/resource-page.component';
 import { Button } from '../components/shadcn/ui/button';
 import { useAccessControl } from '../providers/access-control.provider';
 import { useAuthenticatedUser } from '../providers/auth.provider';
+import { loadClinics } from '../utils/reference-loaders.utils';
+import { managedViaClinicWhere } from '../utils/scope.utils';
+
+const columns: ColumnDef<TemplateResponse>[] = [
+  { accessorKey: 'name', header: 'Template' },
+  {
+    id: 'clinic',
+    header: 'Clinic',
+    cell: ({ row }) => row.original.clinic.name,
+  },
+];
 
 export const TemplatesPage = () => {
   const access = useAccessControl();
   const user = useAuthenticatedUser();
   const [search, setSearch] = useState('');
-  const [clinic, setClinic] = useState<ClinicResponse>();
-  const loadClinics = useCallback(
-    async (clinicSearch: string) => {
-      const response = await api.clinic.findMany({
-        where: {
-          AND: [
-            user.role === UserRole.Admin ? {} : { managerId: user.id },
-            clinicSearch
-              ? {
-                  name: searchQueryOrUndef(clinicSearch),
-                }
-              : {},
-          ],
-        },
-        orderBy: { name: 'asc' },
-        take: REFERENCE_ITEMS_LIMIT,
-      });
-      return response.items;
-    },
-    [user.id, user.role],
-  );
-  const columns = useMemo<ColumnDef<TemplateResponse>[]>(
-    () => [
-      { accessorKey: 'name', header: 'Template' },
-      {
-        id: 'clinic',
-        header: 'Clinic',
-        cell: ({ row }) => row.original.clinic.name,
-      },
-    ],
-    [],
-  );
+  const [clinic, setClinic] =
+    useState<Awaited<ReturnType<typeof loadClinics>>[number]>();
 
   return (
     <ResourcePage
@@ -64,14 +41,8 @@ export const TemplatesPage = () => {
         api.template.findMany({
           where: {
             AND: [
-              user.role === UserRole.Admin
-                ? {}
-                : { clinic: { managerId: user.id } },
-              search
-                ? {
-                    name: searchQueryOrUndef(search),
-                  }
-                : {},
+              managedViaClinicWhere(user),
+              search ? { name: searchQueryOrUndef(search) } : {},
               clinic ? { clinicId: clinic.id } : {},
             ],
           },
@@ -91,7 +62,7 @@ export const TemplatesPage = () => {
             value={clinic}
             placeholder="Search clinic"
             emptyLabel="No clinics found."
-            load={loadClinics}
+            load={(clinicSearch) => loadClinics(user, clinicSearch)}
             getKey={(option) => String(option.id)}
             getLabel={(option) => option.name}
             onChange={setClinic}

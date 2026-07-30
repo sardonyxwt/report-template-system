@@ -1,5 +1,5 @@
 import { type ColumnDef } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { type UserResponse } from 'platform/common-base';
 import { searchQueryOrUndef, UserRole } from 'platform/prisma';
 import { api } from '../api/client.api';
@@ -9,29 +9,27 @@ import { ResourcePage } from '../components/resource-page.component';
 import { Badge } from '../components/shadcn/ui/badge';
 import { useAccessControl } from '../providers/access-control.provider';
 
+const columns: ColumnDef<UserResponse>[] = [
+  {
+    accessorKey: 'fullName',
+    header: 'Manager',
+    cell: ({ row }) => row.original.fullName || '—',
+  },
+  { accessorKey: 'email', header: 'Email' },
+  {
+    id: 'clinics',
+    header: 'Manager profile',
+    cell: ({ row }) => (
+      <Badge variant={row.original.manager ? 'default' : 'destructive'}>
+        {row.original.manager ? 'Active' : 'Missing'}
+      </Badge>
+    ),
+  },
+];
+
 export const ManagersPage = () => {
   const access = useAccessControl();
   const [search, setSearch] = useState('');
-  const columns = useMemo<ColumnDef<UserResponse>[]>(
-    () => [
-      {
-        accessorKey: 'fullName',
-        header: 'Manager',
-        cell: ({ row }) => row.original.fullName || '—',
-      },
-      { accessorKey: 'email', header: 'Email' },
-      {
-        id: 'clinics',
-        header: 'Manager profile',
-        cell: ({ row }) => (
-          <Badge variant={row.original.manager ? 'default' : 'destructive'}>
-            {row.original.manager ? 'Active' : 'Missing'}
-          </Badge>
-        ),
-      },
-    ],
-    [],
-  );
 
   return (
     <ResourcePage
@@ -45,12 +43,8 @@ export const ManagersPage = () => {
             ...(search
               ? {
                   OR: [
-                    {
-                      fullName: searchQueryOrUndef(search),
-                    },
-                    {
-                      email: searchQueryOrUndef(search),
-                    },
+                    { fullName: searchQueryOrUndef(search) },
+                    { email: searchQueryOrUndef(search) },
                   ],
                 }
               : {}),

@@ -10,17 +10,17 @@ import {
 import { toast } from 'sonner';
 import {
   type ClinicResponse,
-  REFERENCE_ITEMS_LIMIT,
   type TemplateCreateRequest,
   TemplateCreateRequestSchema,
   type TemplateResponse,
   type TemplateUpdateRequest,
   TemplateUpdateRequestSchema,
 } from 'platform/common-base';
-import { type TemplateData, UserRole } from 'platform/prisma';
+import { type TemplateData } from 'platform/prisma';
 import { api } from '../../api/client.api';
 import { useRequest } from '../../hooks/request.hook';
 import { useAuthenticatedUser } from '../../providers/auth.provider';
+import { loadClinics } from '../../utils/reference-loaders.utils';
 import { getErrorMessage } from '../../utils/request.utils';
 import { cn } from '../shadcn/lib/utils';
 import { Button } from '../shadcn/ui/button';
@@ -76,14 +76,7 @@ export const TemplateModal = ({
     name: 'data.blocks',
   });
 
-  const clinicsRequest = useRequest(async () => {
-    const response = await api.clinic.findMany({
-      where: user.role === UserRole.Admin ? {} : { managerId: user.id },
-      orderBy: { name: 'asc' },
-      take: REFERENCE_ITEMS_LIMIT,
-    });
-    return response.items;
-  });
+  const clinicsRequest = useRequest(() => loadClinics(user));
 
   const saveRequest = useRequest(
     (data: TemplateForm) =>
@@ -161,9 +154,7 @@ export const TemplateModal = ({
             loadClinics={clinicsRequest.fetch}
             saving={saveRequest.isLoading}
             onCancel={() => setOpen(false)}
-            onSave={(data) =>
-              void saveRequest.fetch(data).catch(() => undefined)
-            }
+            onSave={(data) => void saveRequest.fetch(data)}
           />
         </TemplateAiGenerationProvider>
       </DialogContent>
@@ -193,7 +184,7 @@ const TemplateModalForm = ({
   setActiveTab: (tab: 'edit' | 'preview') => void;
   clinics: ClinicResponse[];
   clinicsLoading: boolean;
-  loadClinics: () => Promise<ClinicResponse[]>;
+  loadClinics: () => void | Promise<unknown>;
   saving: boolean;
   onCancel: () => void;
   onSave: (data: TemplateForm) => void;
@@ -210,7 +201,7 @@ const TemplateModalForm = ({
 
     setActiveTab('edit');
     form.reset(createDefaultValues(template));
-    void loadClinics().catch(() => undefined);
+    void loadClinics();
   }, [form, loadClinics, open, reset, setActiveTab, template]);
 
   return (

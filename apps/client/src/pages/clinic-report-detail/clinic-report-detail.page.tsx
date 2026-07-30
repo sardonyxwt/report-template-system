@@ -26,7 +26,7 @@ export const ClinicReportDetailPage = () => {
 
   useEffect(() => {
     if (Number.isInteger(reportId) && reportId > 0) {
-      void reportRequest.fetch(reportId).catch(() => undefined);
+      void reportRequest.fetch(reportId);
     }
   }, [reportId, reportRequest.fetch]);
 

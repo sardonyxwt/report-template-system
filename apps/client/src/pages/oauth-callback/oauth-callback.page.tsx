@@ -33,7 +33,7 @@ export const OauthCallbackPage = () => {
       return;
     }
     startedRef.current = true;
-    void oauthRequest.fetch(searchParams.toString()).catch(() => undefined);
+    void oauthRequest.fetch(searchParams.toString());
   }, [isAuthenticated, oauthRequest, searchParams, status]);
 
   useEffect(() => {
@@ -59,9 +59,7 @@ export const OauthCallbackPage = () => {
             <Button
               onClick={() => {
                 startedRef.current = true;
-                void oauthRequest
-                  .fetch(searchParams.toString())
-                  .catch(() => undefined);
+                void oauthRequest.fetch(searchParams.toString());
               }}
             >
               Try again

@@ -1,12 +1,8 @@
 import { type ColumnDef } from '@tanstack/react-table';
 import { PencilIcon } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
-import {
-  type ClinicResponse,
-  REFERENCE_ITEMS_LIMIT,
-  type UserResponse,
-} from 'platform/common-base';
-import { searchQueryOrUndef, UserRole } from 'platform/prisma';
+import { useState } from 'react';
+import { type ClinicResponse } from 'platform/common-base';
+import { searchQueryOrUndef } from 'platform/prisma';
 import { api } from '../api/client.api';
 import { ClinicModal } from '../components/modal/clinic.modal';
 import {
@@ -18,56 +14,28 @@ import { Button } from '../components/shadcn/ui/button';
 import { useAccessControl } from '../providers/access-control.provider';
 import { useAuthenticatedUser } from '../providers/auth.provider';
 import { formatOptionLabel } from '../utils/formatting.utils';
+import { loadManagers } from '../utils/reference-loaders.utils';
+import { managedClinicWhere } from '../utils/scope.utils';
+
+const columns: ColumnDef<ClinicResponse>[] = [
+  { accessorKey: 'name', header: 'Clinic' },
+  {
+    id: 'manager',
+    header: 'Manager',
+    cell: ({ row }) =>
+      formatOptionLabel(
+        row.original.manager.user.fullName,
+        row.original.manager.user.email,
+      ),
+  },
+];
 
 export const ClinicsPage = () => {
   const access = useAccessControl();
   const user = useAuthenticatedUser();
   const [search, setSearch] = useState('');
-  const [manager, setManager] = useState<UserResponse>();
-  const loadManagers = useCallback(
-    async (managerSearch: string) => {
-      if (user.role !== UserRole.Admin) {
-        return [user];
-      }
-
-      const response = await api.user.findMany({
-        where: {
-          role: UserRole.Manager,
-          ...(managerSearch
-            ? {
-                OR: [
-                  {
-                    fullName: searchQueryOrUndef(managerSearch),
-                  },
-                  {
-                    email: searchQueryOrUndef(managerSearch),
-                  },
-                ],
-              }
-            : {}),
-        },
-        orderBy: { email: 'asc' },
-        take: REFERENCE_ITEMS_LIMIT,
-      });
-      return response.items;
-    },
-    [user],
-  );
-  const columns = useMemo<ColumnDef<ClinicResponse>[]>(
-    () => [
-      { accessorKey: 'name', header: 'Clinic' },
-      {
-        id: 'manager',
-        header: 'Manager',
-        cell: ({ row }) =>
-          formatOptionLabel(
-            row.original.manager.user.fullName,
-            row.original.manager.user.email,
-          ),
-      },
-    ],
-    [],
-  );
+  const [manager, setManager] =
+    useState<Awaited<ReturnType<typeof loadManagers>>[number]>();
 
   return (
     <ResourcePage
@@ -78,12 +46,8 @@ export const ClinicsPage = () => {
         api.clinic.findMany({
           where: {
             AND: [
-              user.role === UserRole.Admin ? {} : { managerId: user.id },
-              search
-                ? {
-                    name: searchQueryOrUndef(search),
-                  }
-                : {},
+              managedClinicWhere(user),
+              search ? { name: searchQueryOrUndef(search) } : {},
               manager ? { managerId: manager.id } : {},
             ],
           },
@@ -103,7 +67,7 @@ export const ClinicsPage = () => {
             value={manager}
             placeholder="Search manager"
             emptyLabel="No managers found."
-            load={loadManagers}
+            load={(managerSearch) => loadManagers(user, managerSearch)}
             getKey={(option) => String(option.id)}
             getLabel={(option) =>
               formatOptionLabel(option.fullName, option.email)

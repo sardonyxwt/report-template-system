@@ -11,7 +11,7 @@ export const Providers = ({ children }: PropsWithChildren) => (
       <AuthProvider>
         <AccessControlProvider>
           {children}
-          <Toaster richColors position="top-right" />
+          <Toaster richColors closeButton position="top-center" />
         </AccessControlProvider>
       </AuthProvider>
     </TooltipProvider>

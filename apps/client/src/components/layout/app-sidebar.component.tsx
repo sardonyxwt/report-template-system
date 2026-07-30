@@ -172,7 +172,7 @@ export const AppSidebar = () => {
                     disabled={logoutRequest.isLoading}
                     onClick={(event) => {
                       event.preventDefault();
-                      void logoutRequest.fetch().catch(() => undefined);
+                      void logoutRequest.fetch();
                     }}
                   >
                     <LogOutIcon />

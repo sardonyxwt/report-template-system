@@ -144,11 +144,7 @@ export const ResourcePage = <Data,>({
                     <AlertDialogAction
                       variant="destructive"
                       disabled={deleteRequest.isLoading}
-                      onClick={() =>
-                        void deleteRequest
-                          .fetch(selected)
-                          .catch(() => undefined)
-                      }
+                      onClick={() => void deleteRequest.fetch(selected)}
                     >
                       Delete
                     </AlertDialogAction>

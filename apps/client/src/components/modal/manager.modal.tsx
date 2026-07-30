@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import {
@@ -14,18 +14,12 @@ import { useRequest } from '../../hooks/request.hook';
 import { formatOptionLabel } from '../../utils/formatting.utils';
 import { getErrorMessage } from '../../utils/request.utils';
 import { EntityAutocomplete } from '../form/entity-autocomplete.component';
-import { Button } from '../shadcn/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '../shadcn/ui/dialog';
+  FormDialog,
+  useDialogReset,
+  useFormDialog,
+} from '../form/form-dialog.component';
 import { Field, FieldError, FieldLabel } from '../shadcn/ui/field';
-import { Spinner } from '../shadcn/ui/spinner';
 
 export const ManagerModal = ({
   trigger,
@@ -34,9 +28,10 @@ export const ManagerModal = ({
   trigger: ReactNode;
   onSaved: () => void;
 }) => {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, closeAndSave } = useFormDialog({ onSaved });
   const form = useForm<ManagerCreateRequest>({
     resolver: zodResolver(ManagerCreateRequestSchema),
+    defaultValues: { userId: 0 },
   });
   const usersRequest = useRequest(async () => {
     const response = await api.user.findMany({
@@ -53,78 +48,56 @@ export const ManagerModal = ({
   const createRequest = useRequest(api.manager.create, {
     onSuccess: () => {
       toast.success('Manager created.');
-      setOpen(false);
-      onSaved();
+      closeAndSave();
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
-  useEffect(() => {
-    if (open) {
-      form.reset({ userId: 0 });
-      void usersRequest.fetch().catch(() => undefined);
-    }
-  }, [form, open, usersRequest.fetch]);
+  useDialogReset({
+    open,
+    reset: form.reset,
+    getValues: () => ({ userId: 0 }),
+    onOpen: () => void usersRequest.fetch(),
+  });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create manager</DialogTitle>
-          <DialogDescription>
-            Promote an existing unassigned user. No additional EAL or feature
-            fields are required.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          noValidate
-          className="grid gap-4"
-          onSubmit={form.handleSubmit(
-            (data) => void createRequest.fetch(data).catch(() => undefined),
-          )}
-        >
-          <Field data-invalid={Boolean(form.formState.errors.userId)}>
-            <FieldLabel htmlFor="manager-user">User</FieldLabel>
-            <Controller
-              control={form.control}
-              name="userId"
-              render={({ field }) => (
-                <EntityAutocomplete
-                  id="manager-user"
-                  value={(usersRequest.data ?? []).find(
-                    (candidate) => candidate.id === field.value,
-                  )}
-                  items={usersRequest.data ?? []}
-                  placeholder="Search for a user…"
-                  emptyLabel="No unassigned users found."
-                  loading={usersRequest.isLoading}
-                  invalid={Boolean(form.formState.errors.userId)}
-                  getKey={(candidate: UserResponse) => String(candidate.id)}
-                  getLabel={(candidate: UserResponse) =>
-                    formatOptionLabel(candidate.fullName, candidate.email)
-                  }
-                  onChange={(candidate) => field.onChange(candidate?.id ?? 0)}
-                />
+    <FormDialog
+      trigger={trigger}
+      title="Create manager"
+      description="Promote an existing unassigned user. No additional EAL or feature fields are required."
+      submitLabel="Create manager"
+      loading={createRequest.isLoading}
+      open={open}
+      onOpenChange={setOpen}
+      form={form}
+      onSubmit={(data) => void createRequest.fetch(data)}
+    >
+      <Field data-invalid={Boolean(form.formState.errors.userId)}>
+        <FieldLabel htmlFor="manager-user">User</FieldLabel>
+        <Controller
+          control={form.control}
+          name="userId"
+          render={({ field }) => (
+            <EntityAutocomplete
+              id="manager-user"
+              value={(usersRequest.data ?? []).find(
+                (candidate) => candidate.id === field.value,
               )}
+              items={usersRequest.data ?? []}
+              placeholder="Search for a user…"
+              emptyLabel="No unassigned users found."
+              loading={usersRequest.isLoading}
+              invalid={Boolean(form.formState.errors.userId)}
+              getKey={(candidate: UserResponse) => String(candidate.id)}
+              getLabel={(candidate: UserResponse) =>
+                formatOptionLabel(candidate.fullName, candidate.email)
+              }
+              onChange={(candidate) => field.onChange(candidate?.id ?? 0)}
             />
-            <FieldError errors={[form.formState.errors.userId]} />
-          </Field>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={createRequest.isLoading}>
-              {createRequest.isLoading && <Spinner data-icon="inline-start" />}
-              Create manager
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          )}
+        />
+        <FieldError errors={[form.formState.errors.userId]} />
+      </Field>
+    </FormDialog>
   );
 };
