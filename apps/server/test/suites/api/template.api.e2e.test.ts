@@ -196,7 +196,7 @@ describe('api.template', () => {
       expect(storyResponse.text).toContain('Kidney monitoring');
       expect(storyResponse.text).toContain('Glycemic control');
       expect(storyResponse.text).toContain('Blood pressure control');
-      expect(storyResponse.text).not.toContain("Doron’s Health Report");
+      expect(storyResponse.text).not.toContain('Doron’s Health Report');
     }
 
     const userResponse = await context

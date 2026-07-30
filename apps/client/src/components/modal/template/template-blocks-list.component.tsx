@@ -6,7 +6,6 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
-  type DragStartEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -35,7 +34,7 @@ export const TemplateBlocksList = ({
     }),
   );
 
-  const handleDragStart = (_event: DragStartEvent) => {
+  const handleDragStart = () => {
     setIsSorting(true);
   };
 
