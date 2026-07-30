@@ -133,13 +133,17 @@ export class TemplateService {
 
   /**
    * Returns an authorized stream of AI edit progress and result events.
+   *
+   * Model allowlist is checked before the stream starts so invalid models fail
+   * with HTTP 400 instead of an in-stream error event.
    */
-  async *aiEditEvents(
+  aiEditEvents(
     data: TemplateAiEditRequest,
   ): AsyncGenerator<TemplateAiEditEvent> {
     this.session.abilityGuard('templates', 'aiEdit');
+    this.openAi.assertModelAllowed(data.model);
 
-    yield* this.streamAiEditEvents(data);
+    return this.streamAiEditEvents(data);
   }
 
   /**

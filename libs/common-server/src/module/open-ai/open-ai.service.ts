@@ -140,6 +140,19 @@ export class OpenAiService {
   }
 
   /**
+   * Rejects models that are not configured for this deployment.
+   *
+   * @throws {BadRequestException} When the model id is outside the allowlist.
+   */
+  public assertModelAllowed(modelId: string): void {
+    if (!this.isModelAllowed(modelId)) {
+      throw new BadRequestException(
+        'The selected AI model is not available for template editing.',
+      );
+    }
+  }
+
+  /**
    * Runs a Responses API request until the model returns a final response.
    *
    * Function calls are delegated to the feature handler and their outputs are
@@ -160,11 +173,7 @@ export class OpenAiService {
       ...responseOptions
     } = options;
 
-    if (!this.isModelAllowed(model)) {
-      throw new BadRequestException(
-        'The selected AI model is not available for template editing.',
-      );
-    }
+    this.assertModelAllowed(model);
 
     let input = initialInput;
     let previousResponseId = initialPreviousResponseId;

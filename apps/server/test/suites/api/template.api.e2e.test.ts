@@ -170,22 +170,25 @@ describe('api.template', () => {
       expect(blockResponse.text).toContain('data-report-block="summary"');
       expect(blockResponse.text).not.toContain('data-report-block="cover"');
 
+      const storyData = {
+        blocks: data.blocks.map((block) =>
+          block.type === 'story'
+            ? {
+                ...block,
+                template:
+                  '<section>{{#each items}}<article>{{title}}</article>{{/each}}</section>',
+              }
+            : block,
+        ),
+      };
+
       const storyResponse = await context
         .apiCall({
           ...endpoints.template.preview,
           accessToken,
         })
         .send({
-          data: {
-            blocks: [
-              {
-                type: 'story',
-                enabled: true,
-                template:
-                  '<section>{{#each items}}<article>{{title}}</article>{{/each}}</section>',
-              },
-            ],
-          },
+          data: storyData,
           blockType: 'story',
         });
 
