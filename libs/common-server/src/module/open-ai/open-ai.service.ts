@@ -298,7 +298,7 @@ export class OpenAiService {
     return tools.map(({ definition }) => definition);
   }
 
-  private isModelAllowed(modelId: string): boolean {
+  protected isModelAllowed(modelId: string): boolean {
     return this.options.modelAllowlist.includes(modelId);
   }
 }
