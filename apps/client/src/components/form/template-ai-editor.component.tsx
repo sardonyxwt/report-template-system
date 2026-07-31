@@ -12,7 +12,7 @@ import {
   TemplateAiReasoningEffortSchema,
 } from 'platform/common-base';
 import { AI_REASONING_EFFORT_OPTIONS } from '../../constants';
-import { clientEnvironment } from '../../env/client.env';
+import { env } from '../../env/client.env';
 import { type TemplateAiSubmitParams } from '../modal/template/template.types';
 import { cn } from '../shadcn/lib/utils';
 import { Button } from '../shadcn/ui/button';
@@ -45,7 +45,7 @@ export const TemplateAiEditor = ({
   ariaLabel: string;
   onSubmit: (params: TemplateAiSubmitParams) => Promise<void>;
 }) => {
-  const models = clientEnvironment.openAiModelAllowlist;
+  const models = env.openAiModelAllowlist;
   const [prompt, setPrompt] = useState('');
   const [modelId, setModelId] = useState(models[0]!);
   const [reasoningEffort, setReasoningEffort] =
@@ -208,9 +208,8 @@ export const TemplateAiEditor = ({
             className="shrink-0"
             disabled={!prompt.trim() || !modelId || busy || disabled}
             onClick={() => {
-              const submittedPrompt = prompt;
               void onSubmit({
-                prompt: submittedPrompt,
+                prompt,
                 model: modelId,
                 reasoningEffort,
                 visualValidation,

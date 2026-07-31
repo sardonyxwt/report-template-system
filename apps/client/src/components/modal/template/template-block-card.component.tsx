@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
-import { formatLabel } from '../../../utils/report-formatters.utils';
+import { formatLabel } from '../../../utils/formatting.utils';
 import { TemplateAiEditor } from '../../form/template-ai-editor.component';
 import { cn } from '../../shadcn/lib/utils';
 import { Checkbox } from '../../shadcn/ui/checkbox';

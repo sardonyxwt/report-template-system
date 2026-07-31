@@ -13,7 +13,7 @@ const ClientEnvironmentSchema = z.object({
 
 const environment = ClientEnvironmentSchema.parse(import.meta.env);
 
-export const clientEnvironment = {
+export const env = {
   apiUrl: environment.VITE_API_URL.replace(/\/$/, ''),
   openAiModelAllowlist: environment.VITE_OPENAI_MODEL_ALLOWLIST,
 } as const;

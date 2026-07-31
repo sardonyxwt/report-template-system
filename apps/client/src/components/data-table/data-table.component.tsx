@@ -1,6 +1,5 @@
 import {
   type ColumnDef,
-  type Row,
   type RowSelectionState,
   flexRender,
   getCoreRowModel,
@@ -208,8 +207,3 @@ const getUtilityColumnClassName = (
 
   return '';
 };
-
-export const stopRowAction = (event: React.MouseEvent) =>
-  event.stopPropagation();
-
-export type DataTableRow<Data> = Row<Data>;

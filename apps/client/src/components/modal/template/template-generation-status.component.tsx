@@ -1,4 +1,4 @@
-import { formatLabel } from '../../../utils/report-formatters.utils';
+import { formatLabel } from '../../../utils/formatting.utils';
 import { getErrorMessage } from '../../../utils/request.utils';
 import { RequestStatusNotification } from '../../form/request-status-notification.component';
 import { useTemplateAiGeneration } from './template-ai-generation.provider';

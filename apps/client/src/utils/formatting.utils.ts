@@ -14,6 +14,11 @@ const toDate = (value: Date | string) =>
       : value,
   );
 
+export const formatLabel = (field: string): string =>
+  field
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (letter) => letter.toUpperCase());
+
 export const formatDate = (value: Date | string) =>
   dateFormatter.format(toDate(value));
 

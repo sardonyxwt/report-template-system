@@ -17,7 +17,7 @@ import { type ClinicReportResponse } from 'platform/common-base';
 import { Badge } from '../../components/shadcn/ui/badge';
 import { Card, CardContent } from '../../components/shadcn/ui/card';
 import { Separator } from '../../components/shadcn/ui/separator';
-import { formatLabel } from '../../utils/report-formatters.utils';
+import { formatLabel } from '../../utils/formatting.utils';
 
 type ReportBlock = ClinicReportResponse['data']['blocks'][number];
 
