@@ -5,8 +5,7 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import { zodTextFormat } from 'openai/helpers/zod';
-import type { ResponseInput } from 'openai/resources/responses/responses';
+import type { AgentInputItem, RunContext } from '@openai/agents';
 import { z } from 'zod';
 import {
   TemplateAiEditEvent,
@@ -17,9 +16,9 @@ import {
   OpenAiService,
   ReportHtmlService,
   ReportImageService,
-  SessionService,
+  type OpenAiRunContext,
   type OpenAiRunEvent,
-  OpenAiTool,
+  type OpenAiToolOutput,
 } from 'platform/common-server';
 import {
   TemplateBlockTypeSchema,
@@ -61,11 +60,16 @@ const TemplateToolArgumentsSchema = z.object({
     ),
 });
 
+type BlockToolArguments = z.infer<typeof BlockToolArgumentsSchema>;
+type TemplateToolArguments = z.infer<typeof TemplateToolArgumentsSchema>;
+type TemplateAiToolContext = RunContext<OpenAiRunContext>;
+
 type TemplateAiProgressEvent = Extract<
   TemplateAiEditEvent,
   { type: 'progress' }
 >;
 type TemplateAiResultEvent = Extract<TemplateAiEditEvent, { type: 'result' }>;
+type TemplateAiProgressStage = TemplateAiProgressEvent['data']['stage'];
 type TemplateAiRunEvent = Exclude<OpenAiRunEvent<unknown>, { type: 'result' }>;
 
 type ProgressEvent =
@@ -90,8 +94,6 @@ type ProgressEvent =
  */
 @Injectable()
 export class TemplateAiEditorService {
-  private readonly tools: OpenAiTool<unknown>[];
-
   constructor(
     @Inject(Logger)
     private readonly logger: Logger,
@@ -99,78 +101,9 @@ export class TemplateAiEditorService {
     private readonly openAi: OpenAiService,
     @Inject(ReportHtmlService)
     private readonly reportHtmlService: ReportHtmlService,
-    @Inject(SessionService)
-    private readonly session: SessionService,
     @Inject(ReportImageService)
-    reportImageService: ReportImageService,
-  ) {
-    this.tools = [
-      this.openAi.defineOpenAiTool({
-        name: 'render_block_preview',
-        description:
-          'Compile one proposed Handlebars block with its test data and return the exact HTML document used for PDF rendering.',
-        parameters: BlockToolArgumentsSchema,
-        execute(argumentsValue) {
-          return reportHtmlService.renderBlock(
-            argumentsValue,
-            reportFixture.default,
-          );
-        },
-      }),
-      this.openAi.defineOpenAiTool({
-        name: 'render_template_preview',
-        description:
-          'Validate and render the complete proposed template, including enabled states and block order, with authoritative test data.',
-        parameters: TemplateToolArgumentsSchema,
-        execute(argumentsValue) {
-          return reportHtmlService.render(
-            argumentsValue,
-            reportFixture.default,
-          );
-        },
-      }),
-      this.openAi.defineOpenAiTool({
-        name: 'capture_block_preview',
-        description:
-          'Optionally render one proposed block at its real A4 PDF content width and return a PNG image. Use only when a complex visual layout cannot be assessed confidently from the markup and rendered HTML.',
-        parameters: BlockToolArgumentsSchema,
-        async execute(argumentsValue) {
-          const image = await reportImageService.renderBlock(
-            argumentsValue,
-            reportFixture.default,
-          );
-
-          return [
-            {
-              type: 'input_image',
-              detail: 'low',
-              image_url: `data:image/png;base64,${image.toString('base64')}`,
-            },
-          ];
-        },
-      }),
-      this.openAi.defineOpenAiTool({
-        name: 'capture_template_preview',
-        description:
-          'Optionally render the complete proposed ordered template as a PNG. Use only when cross-block layout or pagination cannot be assessed confidently from the markup and rendered HTML.',
-        parameters: TemplateToolArgumentsSchema,
-        async execute(argumentsValue) {
-          const image = await reportImageService.render(
-            argumentsValue,
-            reportFixture.default,
-          );
-
-          return [
-            {
-              type: 'input_image',
-              detail: 'low',
-              image_url: `data:image/png;base64,${image.toString('base64')}`,
-            },
-          ];
-        },
-      }),
-    ];
-  }
+    private readonly reportImageService: ReportImageService,
+  ) {}
 
   /**
    * Produces typed progress and result events for an AI-assisted template edit.
@@ -212,7 +145,7 @@ export class TemplateAiEditorService {
         currentTemplate: request.data,
       },
       TemplateAiInputSchema,
-      (data): ResponseInput => [
+      (data): AgentInputItem[] => [
         {
           role: 'user',
           content: JSON.stringify(data),
@@ -220,21 +153,58 @@ export class TemplateAiEditorService {
       ],
     );
 
-    const events = this.openAi.run<z.infer<typeof TemplateDataSchema>>({
+    const context = this.openAi.createRunContext();
+
+    const tools = [
+      this.openAi.defineOpenAiTool({
+        name: 'render_block_preview',
+        description:
+          'Compile one proposed Handlebars block with its test data and return the exact HTML document used for PDF rendering.',
+        parameters: BlockToolArgumentsSchema,
+        execute: this.renderBlockPreviewTool.bind(this),
+      }),
+      this.openAi.defineOpenAiTool({
+        name: 'render_template_preview',
+        description:
+          'Validate and render the complete proposed template, including enabled states and block order, with authoritative test data.',
+        parameters: TemplateToolArgumentsSchema,
+        execute: this.renderTemplatePreviewTool.bind(this),
+      }),
+    ];
+
+    if (request.visualValidation) {
+      tools.push(
+        this.openAi.defineOpenAiTool({
+          name: 'capture_block_preview',
+          description:
+            'Optionally render one proposed block at its real A4 PDF content width and return a PNG image. Use only when a complex visual layout cannot be assessed confidently from the markup and rendered HTML.',
+          parameters: BlockToolArgumentsSchema,
+          execute: this.captureBlockPreviewTool.bind(this),
+        }),
+        this.openAi.defineOpenAiTool({
+          name: 'capture_template_preview',
+          description:
+            'Optionally render the complete proposed ordered template as a PNG. Use only when cross-block layout or pagination cannot be assessed confidently from the markup and rendered HTML.',
+          parameters: TemplateToolArgumentsSchema,
+          execute: this.captureTemplatePreviewTool.bind(this),
+        }),
+      );
+    }
+
+    const events = this.openAi.run({
+      name: 'Template Editor',
       model: request.model,
       instructions: this.createReportInstructions(
         request.blockType,
         request.visualValidation,
       ),
       input,
+      context,
       previousResponseId: request.contextId,
-      tools: request.visualValidation
-        ? this.tools
-        : this.tools.filter(({ name }) => !name.startsWith('capture')),
-
+      tools,
       speed: request.speed ? 'priority' : 'default',
       reasoningEffort: request.reasoningEffort,
-      format: zodTextFormat(TemplateDataSchema, 'template_ai_edit_result'),
+      outputType: TemplateDataSchema,
     });
 
     for await (const event of events) {
@@ -243,13 +213,7 @@ export class TemplateAiEditorService {
         continue;
       }
 
-      const result = event.response.output_parsed;
-
-      if (!result) {
-        throw new Error('OpenAI returned no structured template result.');
-      }
-
-      const data = this.validateResult(request, result);
+      const data = this.validateResult(request, event.output);
 
       yield this.createEvent({ type: 'complete' });
 
@@ -263,11 +227,80 @@ export class TemplateAiEditorService {
 
       yield this.createEvent({
         type: 'result',
-        data: { data, contextId: event.response.id },
+        data: { data, contextId: event.responseId },
       });
 
       return;
     }
+  }
+
+  private renderBlockPreviewTool(
+    argumentsValue: BlockToolArguments,
+    runContext?: TemplateAiToolContext,
+  ): OpenAiToolOutput {
+    runContext?.context.addProgress(
+      'rendering',
+      'AI is validating the updated template…',
+    );
+
+    return this.reportHtmlService.renderBlock(
+      argumentsValue,
+      reportFixture.default,
+    );
+  }
+
+  private renderTemplatePreviewTool(
+    argumentsValue: TemplateToolArguments,
+    runContext?: TemplateAiToolContext,
+  ): OpenAiToolOutput {
+    runContext?.context.addProgress(
+      'rendering',
+      'AI is validating the updated template…',
+    );
+
+    return this.reportHtmlService.render(argumentsValue, reportFixture.default);
+  }
+
+  private async captureBlockPreviewTool(
+    argumentsValue: BlockToolArguments,
+    runContext?: TemplateAiToolContext,
+  ): Promise<OpenAiToolOutput> {
+    runContext?.context.addProgress(
+      'reviewing',
+      'AI is checking the visual result…',
+    );
+
+    const image = await this.reportImageService.renderBlock(
+      argumentsValue,
+      reportFixture.default,
+    );
+
+    return {
+      type: 'image',
+      detail: 'low',
+      image: `data:image/png;base64,${image.toString('base64')}`,
+    };
+  }
+
+  private async captureTemplatePreviewTool(
+    argumentsValue: TemplateToolArguments,
+    runContext?: TemplateAiToolContext,
+  ): Promise<OpenAiToolOutput> {
+    runContext?.context.addProgress(
+      'reviewing',
+      'AI is checking the visual result…',
+    );
+
+    const image = await this.reportImageService.render(
+      argumentsValue,
+      reportFixture.default,
+    );
+
+    return {
+      type: 'image',
+      detail: 'low',
+      image: `data:image/png;base64,${image.toString('base64')}`,
+    };
   }
 
   private createEvent(
@@ -296,32 +329,26 @@ export class TemplateAiEditorService {
           data: event.data,
         };
       case 'event':
-        return event.data.type === 'response_started'
-          ? {
-              type: 'progress',
-              data: {
-                stage: 'thinking',
-                message:
-                  event.data.iteration === 0
-                    ? 'AI is thinking through your request…'
-                    : 'AI is reviewing the validation results…',
-              },
-            }
-          : event.data.toolCall.name.startsWith('capture_')
-            ? {
-                type: 'progress',
-                data: {
-                  stage: 'reviewing',
-                  message: 'AI is checking the visual result…',
-                },
-              }
-            : {
-                type: 'progress',
-                data: {
-                  stage: 'rendering',
-                  message: 'AI is validating the updated template…',
-                },
-              };
+        if (event.data.type === 'response_started') {
+          return {
+            type: 'progress',
+            data: {
+              stage: 'thinking',
+              message:
+                event.data.iteration === 0
+                  ? 'AI is thinking through your request…'
+                  : 'AI is reviewing the validation results…',
+            },
+          };
+        }
+
+        return {
+          type: 'progress',
+          data: {
+            stage: event.data.stage as TemplateAiProgressStage,
+            message: event.data.message,
+          },
+        };
     }
   }
 

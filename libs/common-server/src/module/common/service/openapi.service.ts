@@ -186,7 +186,9 @@ export class OpenapiService {
     const schemasRefs = schemas.reduce((map, schema) => {
       const meta = schema.meta();
 
-      return meta?.name ? { ...map, [meta.name]: schema } : map;
+      return meta?.['name']
+        ? { ...map, [meta['name'] as string]: schema }
+        : map;
     }, {});
 
     const document = createDocument({

@@ -1,54 +1,84 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common/exceptions/bad-request.exception';
+import {
+  Agent,
+  OpenAIProvider,
+  Runner,
+  tool,
+  type AgentInputItem,
+  type FunctionTool,
+  type RunContext,
+  type ToolOutputImage,
+  type ToolOutputText,
+} from '@openai/agents';
 import OpenAI from 'openai';
-import { zodResponsesFunction } from 'openai/helpers/zod';
-import type {
-  ParsedResponse,
-  ParsedResponseFunctionToolCall,
-  ResponseCreateParams,
-  ResponseFormatTextConfig,
-  ResponseInput,
-  ResponseInputItem,
-  Tool,
-} from 'openai/resources/responses/responses';
 import { z } from 'zod';
 import { DEFAULT_TOOL_ITERATION_LIMIT } from '../../constants';
 import { createSafetyIdentifier } from '../../utils/crypto.utils';
 import { SessionService } from '../auth/service/session.service';
 import { OPEN_AI_MODULE_OPTIONS, OpenAiModuleOptions } from './open-ai.options';
 
-export type OpenAiToolOutput = ResponseInputItem.FunctionCallOutput['output'];
+/**
+ * Result returned from an OpenAI Agents function tool to the model.
+ */
+export type OpenAiToolOutput =
+  | string
+  | ToolOutputText
+  | ToolOutputImage
+  | Record<string, unknown>
+  | unknown[];
 
 /**
- * Runtime-independent shape used to collect and dispatch OpenAI function tools.
- *
- * The context is owned by the feature and is never included in the model
- * request. It can contain authenticated state, injected Nest services, or any
- * other application-only dependency needed by a tool implementation.
+ * Progress event pushed by tools through the local run context.
  */
-export type OpenAiTool<Args> = {
-  name: string;
-  definition: Tool;
-  execute(argumentsValue: Args): OpenAiToolOutput | Promise<OpenAiToolOutput>;
+export type OpenAiProgressEvent = {
+  type: 'progress';
+  stage: string;
+  message: string;
 };
 
-export type OpenAiToolOptions<Parameters extends z.ZodType> = {
+/**
+ * Local Agents SDK context shared with tool implementations.
+ *
+ * Tools call `addProgress()`; `run()` drains `progressEvents` and yields them.
+ */
+export type OpenAiRunContext = {
+  readonly progressEvents: OpenAiProgressEvent[];
+  addProgress(stage: string, message: string): void;
+};
+
+/**
+ * Agents SDK function tool used by feature services.
+ */
+export type OpenAiTool<Context extends OpenAiRunContext = OpenAiRunContext> =
+  FunctionTool<Context, z.ZodObject, OpenAiToolOutput>;
+
+export type OpenAiToolOptions<
+  Parameters extends z.ZodObject,
+  Context extends OpenAiRunContext = OpenAiRunContext,
+> = {
   name: string;
   description: string;
   parameters: Parameters;
   execute(
     argumentsValue: z.infer<Parameters>,
+    runContext?: RunContext<Context>,
   ): OpenAiToolOutput | Promise<OpenAiToolOutput>;
 };
 
-export type OpenAiRunOptions = {
+export type OpenAiRunOptions<
+  OutputSchema extends z.ZodObject,
+  Context extends OpenAiRunContext = OpenAiRunContext,
+> = {
+  name?: string;
   model: string;
   instructions: string;
   speed: 'priority' | 'default';
   reasoningEffort: 'low' | 'medium' | 'high';
-  input: ResponseInput;
-  format: ResponseFormatTextConfig;
-  tools: OpenAiTool<unknown>[];
+  input: string | AgentInputItem[];
+  outputType: OutputSchema;
+  tools: OpenAiTool<Context>[];
+  context?: Context;
   previousResponseId?: string;
   toolIterationLimit?: number;
 };
@@ -58,25 +88,23 @@ export type OpenAiRunEvent<ParsedResult> =
       type: 'response_started';
       iteration: number;
     }
-  | {
-      type: 'tool_call';
-      iteration: number;
-      toolCall: ParsedResponseFunctionToolCall;
-    }
+  | OpenAiProgressEvent
   | {
       type: 'result';
-      response: ParsedResponse<ParsedResult>;
+      output: ParsedResult;
+      responseId: string;
     };
 
 /**
- * Provides the configured OpenAI client and reusable Responses API workflows.
+ * Provides the configured OpenAI client and reusable Agents SDK workflows.
  *
  * Feature services own prompts, tool declarations, and tool implementations.
- * This service owns SDK initialization and the standard function-tool loop.
+ * This service owns SDK initialization and the standard agent run loop.
  */
 @Injectable()
 export class OpenAiService {
   readonly client: OpenAI;
+  private readonly runner: Runner;
 
   constructor(
     @Inject(Logger)
@@ -90,11 +118,36 @@ export class OpenAiService {
       apiKey: options.apiKey,
       timeout: options.timeoutMs,
     });
+
+    this.runner = new Runner({
+      modelProvider: new OpenAIProvider({
+        openAIClient: this.client as never,
+      }),
+      tracingDisabled: true,
+    });
+  }
+
+  /**
+   * Creates a local run context that tools can use to emit progress events.
+   */
+  public createRunContext(): OpenAiRunContext {
+    const progressEvents: OpenAiProgressEvent[] = [];
+
+    return {
+      progressEvents,
+      addProgress(stage, message) {
+        progressEvents.push({
+          type: 'progress',
+          stage,
+          message,
+        });
+      },
+    };
   }
 
   /**
    * Validates unknown input and transforms the parsed value into the shape
-   * required by an OpenAI request.
+   * required by an OpenAI agent request.
    *
    * The transformer receives the schema output, so Zod coercions and
    * transformations are reflected in its input type.
@@ -108,35 +161,30 @@ export class OpenAiService {
   }
 
   /**
-   * Defines an OpenAI Responses function tool from one authoritative Zod schema.
-   *
-   * The OpenAI helper converts the schema to strict JSON Schema for the model
-   * and makes `responses.parse()` validate arguments before tool dispatch.
+   * Defines an Agents SDK function tool from one authoritative Zod schema.
    */
-  public defineOpenAiTool<Parameters extends z.ZodType>(
-    options: OpenAiToolOptions<Parameters>,
-  ): OpenAiTool<Parameters> {
-    return {
+  public defineOpenAiTool<
+    Parameters extends z.ZodObject,
+    Context extends OpenAiRunContext = OpenAiRunContext,
+  >(options: OpenAiToolOptions<Parameters, Context>): OpenAiTool<Context> {
+    return tool({
       name: options.name,
-      definition: zodResponsesFunction({
-        name: options.name,
-        description: options.description,
-        parameters: options.parameters,
-      }),
-      async execute(argumentsValue) {
-        try {
-          return await options.execute(argumentsValue as z.infer<Parameters>);
-        } catch (error) {
-          return JSON.stringify({
-            ok: false,
-            error:
-              error instanceof Error
-                ? error.message
-                : 'The OpenAI tool could not be executed.',
-          });
-        }
-      },
-    };
+      description: options.description,
+      parameters: options.parameters as z.ZodObject,
+      execute: async (argumentsValue, runContext) =>
+        options.execute(
+          argumentsValue as z.infer<Parameters>,
+          runContext as RunContext<Context> | undefined,
+        ),
+      errorFunction: (_context: RunContext, error: unknown): string =>
+        JSON.stringify({
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'The OpenAI tool could not be executed.',
+        }),
+    }) as OpenAiTool<Context>;
   }
 
   /**
@@ -153,161 +201,141 @@ export class OpenAiService {
   }
 
   /**
-   * Runs a Responses API request until the model returns a final response.
+   * Runs an Agents SDK request until the model returns a final structured result.
    *
-   * Function calls are delegated to the feature handler and their outputs are
-   * automatically sent back to the model using the response conversation.
+   * Function calls are executed by the SDK and their outputs are automatically
+   * sent back to the model using the response conversation.
    */
-  public async *run<ParsedResult>(
-    options: OpenAiRunOptions,
-  ): AsyncGenerator<OpenAiRunEvent<ParsedResult>> {
+  public async *run<
+    OutputSchema extends z.ZodObject,
+    Context extends OpenAiRunContext = OpenAiRunContext,
+  >(
+    options: OpenAiRunOptions<OutputSchema, Context>,
+  ): AsyncGenerator<OpenAiRunEvent<z.infer<OutputSchema>>> {
     const {
+      name = 'OpenAI Agent',
       model,
+      instructions,
       speed,
-      format,
       reasoningEffort,
-      input: initialInput,
-      previousResponseId: initialPreviousResponseId,
-      toolIterationLimit = DEFAULT_TOOL_ITERATION_LIMIT,
+      input,
+      outputType,
       tools,
-      ...responseOptions
+      previousResponseId,
+      toolIterationLimit = DEFAULT_TOOL_ITERATION_LIMIT,
     } = options;
 
     this.assertModelAllowed(model);
 
-    let input = initialInput;
-    let previousResponseId = initialPreviousResponseId;
+    const context = options.context ?? (this.createRunContext() as Context);
 
-    for (let iteration = 0; iteration < toolIterationLimit; iteration += 1) {
-      yield {
-        type: 'response_started',
-        iteration,
-      };
-
-      const response = await this.client.responses.parse<
-        ResponseCreateParams,
-        ParsedResult
-      >({
-        model,
-        text: { format },
-        tool_choice: 'auto',
+    const agent = new Agent<Context, OutputSchema>({
+      name,
+      instructions,
+      model,
+      outputType,
+      tools,
+      modelSettings: {
         store: true,
-        service_tier: speed,
-        safety_identifier: createSafetyIdentifier(
-          this.session.authorizedUser.id,
-        ),
+        parallelToolCalls: true,
         reasoning: {
           effort: reasoningEffort,
         },
-        parallel_tool_calls: true,
-        tools: this.getOpenAiToolDefinitions(tools),
-        input,
-        ...responseOptions,
-        ...(previousResponseId
-          ? { previous_response_id: previousResponseId }
-          : {}),
-      });
+        providerData: {
+          service_tier: speed,
+          safety_identifier: createSafetyIdentifier(
+            this.session.authorizedUser.id,
+          ),
+        },
+      },
+    });
 
-      const toolCalls = response.output.filter(
-        (item): item is ParsedResponseFunctionToolCall =>
-          item.type === 'function_call',
-      );
+    const stream = await this.runner.run(agent, input, {
+      stream: true,
+      maxTurns: toolIterationLimit,
+      previousResponseId,
+      context,
+    });
 
-      if (!toolCalls.length) {
+    let iteration = -1;
+
+    for await (const event of stream) {
+      if (
+        event.type === 'raw_model_stream_event' &&
+        event.data.type === 'response_started'
+      ) {
+        iteration += 1;
         yield {
-          type: 'result',
-          response,
+          type: 'response_started',
+          iteration,
         };
-        return;
       }
 
-      const toolOutputs: ResponseInput = [];
+      if (
+        event.type === 'run_item_stream_event' &&
+        event.name === 'tool_called' &&
+        event.item.type === 'tool_call_item'
+      ) {
+        const toolName =
+          event.item.toolName ??
+          ('name' in event.item.rawItem
+            ? String(event.item.rawItem.name)
+            : undefined);
 
-      for (const toolCall of toolCalls) {
-        yield {
-          type: 'tool_call',
-          iteration,
-          toolCall,
-        };
-
-        const context = {
-          toolName: toolCall.name,
-          toolCallId: toolCall.call_id,
-          iteration,
-        };
-
-        this.logger.log(
-          'OpenAI tool call started',
-          OpenAiService.name,
-          context,
-        );
-
-        let output: OpenAiToolOutput;
-
-        try {
-          output = await this.executeOpenAiTool(
-            tools,
-            toolCall.name,
-            toolCall.parsed_arguments,
-          );
-
-          this.logger.log(
-            'OpenAI tool call completed',
-            OpenAiService.name,
-            context,
-          );
-        } catch (error) {
-          this.logger.error('OpenAI tool call failed', OpenAiService.name, {
-            ...context,
-            error,
+        if (toolName) {
+          this.logger.log('OpenAI tool call started', OpenAiService.name, {
+            toolName,
+            iteration,
           });
-
-          throw error;
         }
+      }
 
-        toolOutputs.push({
-          type: 'function_call_output',
-          call_id: toolCall.call_id,
-          output,
+      if (
+        event.type === 'run_item_stream_event' &&
+        event.name === 'tool_output'
+      ) {
+        this.logger.log('OpenAI tool call completed', OpenAiService.name, {
+          iteration,
         });
       }
 
-      input = toolOutputs;
-      previousResponseId = response.id;
+      yield* this.drainProgressEvents(context);
     }
 
-    throw new Error(
-      `OpenAI exceeded the tool iteration limit of ${toolIterationLimit}.`,
-    );
-  }
+    await stream.completed;
+    yield* this.drainProgressEvents(context);
 
-  /**
-   * Dispatches an already parsed Responses function call to its typed handler.
-   */
-  private executeOpenAiTool<Args>(
-    tools: readonly OpenAiTool<Args>[],
-    name: string,
-    argumentsValue: Args,
-  ): OpenAiToolOutput | Promise<OpenAiToolOutput> {
-    const tool = tools.find((candidate) => candidate.name === name);
+    const output = stream.finalOutput;
+    const responseId = stream.lastResponseId;
 
-    if (!tool) {
-      throw new Error(`Unknown OpenAI tool: ${name}`);
+    if (output === undefined || output === null) {
+      throw new Error('OpenAI returned no structured result.');
     }
 
-    return tool.execute(argumentsValue);
-  }
+    if (!responseId) {
+      throw new Error('OpenAI returned no response id.');
+    }
 
-  /**
-   * Returns the wire definitions passed to `responses.parse()`.
-   */
-  private getOpenAiToolDefinitions<Context>(
-    tools: readonly OpenAiTool<Context>[],
-  ): Tool[] {
-    return tools.map(({ definition }) => definition);
+    yield {
+      type: 'result',
+      output: output as z.infer<OutputSchema>,
+      responseId,
+    };
   }
 
   protected isModelAllowed(modelId: string): boolean {
     return this.options.modelAllowlist.includes(modelId);
+  }
+
+  private *drainProgressEvents(
+    context: OpenAiRunContext,
+  ): Generator<OpenAiProgressEvent> {
+    while (context.progressEvents.length > 0) {
+      const event = context.progressEvents.shift();
+
+      if (event) {
+        yield event;
+      }
+    }
   }
 }

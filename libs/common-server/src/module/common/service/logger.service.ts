@@ -1,4 +1,3 @@
-import winstonDevConsole from '@epegzz/winston-dev-console';
 import {
   Inject,
   Injectable,
@@ -7,10 +6,13 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
+import { colorize } from 'json-colorizer';
 import {
-  transport as WinstonTransport,
-  Logger as WinstonLogger,
   createLogger,
+  format,
+  transports,
+  type Logger as WinstonLogger,
+  type transport as WinstonTransport,
 } from 'winston';
 import {
   AppLogger,
@@ -45,6 +47,11 @@ export class LoggerService
   private winston!: WinstonLogger;
   private loggerMetaProviders!: LoggerMetaProvider[];
 
+  private static readonly ANSI = {
+    reset: '\x1b[0m',
+    dim: '\x1b[2m',
+    white: '\x1b[37m',
+  };
   private static readonly SKIP_FIELDS = [
     'email',
     'phone',
@@ -135,22 +142,14 @@ export class LoggerService
    * Writes a debug-level structured log entry.
    */
   debug = (message: unknown, target?: string, ...context: unknown[]): void => {
-    this.logger.debug(
-      message,
-      this.resolveTarget(target, this.debug),
-      ...this.resolveContext(context),
-    );
+    this.logger.debug(message, target, ...this.resolveContext(context));
   };
 
   /**
    * Writes an info-level structured log entry.
    */
   log = (message: unknown, target?: string, ...context: unknown[]): void => {
-    this.logger.info(
-      message,
-      this.resolveTarget(target, this.log),
-      ...this.resolveContext(context),
-    );
+    this.logger.info(message, target, ...this.resolveContext(context));
   };
 
   /**
@@ -161,96 +160,29 @@ export class LoggerService
     target?: string,
     ...context: unknown[]
   ): void => {
-    this.logger.log(
-      message,
-      this.resolveTarget(target, this.verbose),
-      ...this.resolveContext(context),
-    );
+    this.logger.log(message, target, ...this.resolveContext(context));
   };
 
   /**
    * Writes a warning-level structured log entry.
    */
   warn = (message: unknown, target?: string, ...context: unknown[]): void => {
-    this.logger.warn(
-      message,
-      this.resolveTarget(target, this.warn),
-      ...this.resolveContext(context),
-    );
+    this.logger.warn(message, target, ...this.resolveContext(context));
   };
 
   /**
    * Writes an error-level structured log entry.
    */
   error = (message: unknown, target?: string, ...context: unknown[]): void => {
-    this.logger.error(
-      message,
-      this.resolveTarget(target, this.error),
-      ...this.resolveContext(context),
-    );
+    this.logger.error(message, target, ...this.resolveContext(context));
   };
 
   /**
    * Writes a fatal condition using the logger's error transport.
    */
   fatal = (message: unknown, target?: string, ...context: unknown[]): void => {
-    this.logger.error(
-      message,
-      this.resolveTarget(target, this.fatal),
-      ...this.resolveContext(context),
-    );
+    this.logger.error(message, target, ...this.resolveContext(context));
   };
-
-  private resolveTarget(
-    target: string | undefined,
-    caller: (...args: never[]) => unknown,
-  ) {
-    const targetParts = target ? [target] : [];
-
-    const callPlace = this.resolveCallPlace(caller);
-
-    if (callPlace) {
-      targetParts.push(callPlace);
-    }
-
-    return targetParts.join(' @ ');
-  }
-
-  /**
-   * Resolves the first application stack frame after the provided logger method.
-   *
-   * Passing the logger method to `Error.captureStackTrace` lets V8 trim logger
-   * wrapper frames without hardcoded file-path filters.
-   */
-  private resolveCallPlace(caller: (...args: never[]) => unknown) {
-    const error = new Error();
-    Error.captureStackTrace(error, caller);
-
-    const stackLine = error.stack?.split('\n')[1];
-
-    if (!stackLine) {
-      return undefined;
-    }
-
-    const lineMatch = stackLine.match(
-      /at (?:(.*?) \()?((?<absoluteFilePath>.+):(?<lineNumber>\d+):(?<columnNumber>\d+))\)?$/,
-    );
-
-    if (!lineMatch) {
-      return undefined;
-    }
-
-    const { absoluteFilePath, lineNumber, columnNumber } =
-      lineMatch.groups ?? {};
-
-    if (!absoluteFilePath || !lineNumber || !columnNumber) {
-      return undefined;
-    }
-
-    const filePath = absoluteFilePath.replace(`${process.cwd()}/`, '');
-
-    return `${filePath}:${lineNumber}:${columnNumber}`;
-  }
 
   private resolveContext(context: unknown[]): unknown[] {
     const meta = Object.assign(
@@ -272,21 +204,50 @@ export class LoggerService
     }) as LoggerMetaProvider[];
   }
 
-  private createWinstonLogger(transports: WinstonTransport[] = []) {
+  private createWinstonLogger(extraTransports: WinstonTransport[] = []) {
     return createLogger({
       level: 'debug',
-      transports: [
-        winstonDevConsole.transport({
-          showTimestamps: true,
-          addLineSeparation: true,
-          basePath: process.cwd(),
-          inspectOptions: {
-            colors: true,
-            depth: Infinity,
-          },
-        }),
-        ...transports,
-      ],
+      transports: [this.createConsoleTransport(), ...extraTransports],
     });
+  }
+
+  /**
+   * Builds the Console transport used by the Nest server logger.
+   */
+  private createConsoleTransport() {
+    return new transports.Console({
+      format: format.combine(
+        format.colorize({
+          level: true,
+        }),
+        format.timestamp({
+          format: 'YY-MM-DD HH:mm:ss',
+        }),
+        format.printf((info) => {
+          const target = (info['target'] as string | undefined) ?? 'default';
+          const header = `${LoggerService.ANSI.dim}${info['timestamp']}${LoggerService.ANSI.reset} ${info.level}: ${LoggerService.ANSI.white}[${target}]${LoggerService.ANSI.reset} ${info.message}`;
+
+          if (!info['context']) {
+            return `${header}\n`;
+          }
+
+          return `${header}\n${this.formatContext(info['context'])}\n`;
+        }),
+      ),
+    });
+  }
+
+  /**
+   * Formats structured context as an indented, highlighted JSON block.
+   */
+  private formatContext(context: unknown): string {
+    if (context === undefined) {
+      return '';
+    }
+
+    return colorize(context as object, { indent: 2 })
+      .split('\n')
+      .map((line) => `  ${line}`)
+      .join('\n');
   }
 }
