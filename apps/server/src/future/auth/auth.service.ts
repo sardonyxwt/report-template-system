@@ -149,7 +149,7 @@ export class AuthService {
   /**
    * Reports whether provided access and refresh credentials are still usable.
    *
-   * JWT timestamps are decoded for client UX, but activity is decided by both
+   * JWT timestamps come from verified tokens; activity is decided by both
    * token validity and a matching active user record in the database.
    */
   async checkSession({
@@ -173,7 +173,7 @@ export class AuthService {
     let refreshTokenActive = false;
 
     if (accessToken) {
-      accessTokenInfo = this.tokensService.readAccessToken(accessToken);
+      accessTokenInfo = this.tokensService.verifyAccessToken(accessToken);
       if (accessTokenInfo) {
         accessTokenActive = !!(await this.prisma.tx.user.findFirst({
           where: { id: accessTokenInfo.id, accessToken },
@@ -183,7 +183,7 @@ export class AuthService {
     }
 
     if (refreshToken) {
-      refreshTokenInfo = this.tokensService.readAccessToken(refreshToken);
+      refreshTokenInfo = this.tokensService.verifyRefreshToken(refreshToken);
       if (refreshTokenInfo) {
         refreshTokenActive = !!(await this.prisma.tx.user.findFirst({
           where: { id: refreshTokenInfo.id, refreshToken },

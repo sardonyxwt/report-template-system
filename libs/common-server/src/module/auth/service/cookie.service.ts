@@ -6,7 +6,7 @@ import {
   SECOND,
 } from 'platform/common-base';
 import { AUTH_MODULE_OPTIONS, AuthModuleOptions } from '../auth.options';
-import { TokensService } from './tokens.service';
+import { JwtStrategyPayloadWithInfo, TokensService } from './tokens.service';
 
 /**
  * Access and refresh token pair written to authentication cookies.
@@ -68,7 +68,9 @@ export class CookieService {
   bindAccessCookie(res: Response, accessToken: string) {
     res.cookie(AUTH_COOKIE_KEY, accessToken, {
       ...this.commonSecureOptions,
-      maxAge: this.getTokenCookieMaxAge(accessToken),
+      maxAge: this.getTokenCookieMaxAge(
+        this.tokensService.readToken(accessToken),
+      ),
     });
   }
 
@@ -78,7 +80,9 @@ export class CookieService {
   bindRefreshCookie(res: Response, refreshToken: string) {
     res.cookie(AUTH_REFRESH_COOKIE_KEY, refreshToken, {
       ...this.commonSecureOptions,
-      maxAge: this.getTokenCookieMaxAge(refreshToken),
+      maxAge: this.getTokenCookieMaxAge(
+        this.tokensService.readToken(refreshToken),
+      ),
     });
   }
 
@@ -104,9 +108,9 @@ export class CookieService {
     this.unbindRefreshCookie(res);
   }
 
-  private getTokenCookieMaxAge(token: string): number {
-    const tokenInfo = this.tokensService.readAccessToken(token);
-
+  private getTokenCookieMaxAge(
+    tokenInfo: JwtStrategyPayloadWithInfo | undefined,
+  ): number {
     if (!tokenInfo?.exp) {
       return 0;
     }

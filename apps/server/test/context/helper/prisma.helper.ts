@@ -14,15 +14,18 @@ export const createPrismaHelper = (appModule: AppTestModule) => {
 
     const tables = dmmf.datamodel.models
       .map((model) => model.dbName)
-      .filter((table) => table);
+      .filter((table): table is string => Boolean(table))
+      .map((table) => `"${table.replaceAll('"', '""')}"`);
 
-    await appModule.prisma.$transaction([
-      ...tables.map((table) =>
-        appModule.prisma.$executeRawUnsafe(
-          `TRUNCATE TABLE ${table} RESTART IDENTITY CASCADE;`,
-        ),
-      ),
-    ]);
+    try {
+      if (tables.length > 0) {
+        await appModule.prisma.$executeRawUnsafe(
+          `TRUNCATE TABLE ${tables.join(', ')} RESTART IDENTITY CASCADE;`,
+        );
+      }
+    } finally {
+      await appModule.prisma.$disconnect();
+    }
   };
 
   return { cleanup };

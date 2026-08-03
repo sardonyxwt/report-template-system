@@ -276,11 +276,7 @@ export class OpenAiService {
         event.name === 'tool_called' &&
         event.item.type === 'tool_call_item'
       ) {
-        const toolName =
-          event.item.toolName ??
-          ('name' in event.item.rawItem
-            ? String(event.item.rawItem.name)
-            : undefined);
+        const toolName = event.item.toolName;
 
         if (toolName) {
           this.logger.log('OpenAI tool call started', OpenAiService.name, {
@@ -303,6 +299,7 @@ export class OpenAiService {
     }
 
     await stream.completed;
+
     yield* this.drainProgressEvents(context);
 
     const output = stream.finalOutput;

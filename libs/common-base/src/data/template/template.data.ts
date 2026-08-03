@@ -60,9 +60,11 @@ export const TemplatePreviewResponseSchema = z
   .string()
   .meta({ name: 'TemplatePreviewResponseSchema' });
 
-export const TemplateAiReasoningEffortSchema = z
-  .enum(['low', 'medium', 'high'])
-  .meta({ name: 'TemplateAiReasoningEffortSchema' });
+export const TemplateAiReasoningEffortSchema = z.enum([
+  'low',
+  'medium',
+  'high',
+]);
 
 export const TemplateAiEditRequestSchema = z
   .object({
@@ -93,21 +95,19 @@ export const TemplateAiEditResponseSchema = z
   })
   .meta({ name: 'TemplateAiEditResponseSchema' });
 
-export const TemplateAiEditProgressEventSchema = z
-  .object({
-    type: z.literal('progress'),
-    data: z.object({
-      stage: z.enum([
-        'queued',
-        'thinking',
-        'rendering',
-        'reviewing',
-        'finalizing',
-      ]),
-      message: z.string().min(1),
-    }),
-  })
-  .meta({ name: 'TemplateAiEditProgressEventSchema' });
+export const TemplateAiEditProgressEventSchema = z.object({
+  type: z.literal('progress'),
+  data: z.object({
+    stage: z.enum([
+      'queued',
+      'thinking',
+      'rendering',
+      'reviewing',
+      'finalizing',
+    ]),
+    message: z.string().min(1),
+  }),
+});
 
 export const TemplateAiEditEventSchema = z
   .discriminatedUnion('type', [

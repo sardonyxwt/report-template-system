@@ -16,7 +16,7 @@ export type JwtStrategyPayloadWithInfo = JwtStrategyPayload &
   Required<Pick<JwtPayload, 'iat' | 'exp'>>;
 
 /**
- * Creates and decodes JWT tokens used by auth guards and session endpoints.
+ * Creates and verifies JWT tokens used by auth guards and session endpoints.
  *
  * Token payloads are normalized through the shared schema before signing, so
  * access and refresh tokens carry the same stable authorization shape.
@@ -62,7 +62,41 @@ export class TokensService {
    * Use auth strategies or `AuthService.checkSession` when active database
    * token matching is required.
    */
-  readAccessToken(token: string): JwtStrategyPayloadWithInfo | undefined {
+  readToken(token: string): JwtStrategyPayloadWithInfo | undefined {
     return token ? this.jwtService.decode(token, { json: true }) : undefined;
+  }
+
+  /**
+   * Verifies an access token signature and returns its payload when valid.
+   */
+  verifyAccessToken(token: string): JwtStrategyPayloadWithInfo | undefined {
+    if (!token) {
+      return;
+    }
+
+    try {
+      return this.jwtService.verify<JwtStrategyPayloadWithInfo>(token, {
+        secret: this.options.jwtSecret,
+      });
+    } catch {
+      return;
+    }
+  }
+
+  /**
+   * Verifies a refresh token signature and returns its payload when valid.
+   */
+  verifyRefreshToken(token: string): JwtStrategyPayloadWithInfo | undefined {
+    if (!token) {
+      return;
+    }
+
+    try {
+      return this.jwtService.verify<JwtStrategyPayloadWithInfo>(token, {
+        secret: this.options.jwtRefreshSecret,
+      });
+    } catch {
+      return;
+    }
   }
 }
